@@ -62,12 +62,25 @@ def diagram_list(request):
 
 
 @csrf_exempt
-@require_http_methods(['GET'])
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
 def diagram_detail(request, pk):
     try:
-        return JsonResponse(_diagram(Diagram.objects.get(pk=pk)))
+        diagram = Diagram.objects.get(pk=pk)
     except Diagram.DoesNotExist:
         return JsonResponse({'error': 'Not found'}, status=404)
+    if request.method == 'DELETE':
+        diagram.delete()
+        return JsonResponse({'deleted': pk})
+    if request.method == 'PATCH':
+        try:
+            title = str(_body(request).get('title', '')).strip()[:200]
+        except ValueError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+        if not title:
+            return JsonResponse({'error': 'title is required'}, status=400)
+        diagram.title = title
+        diagram.save()
+    return JsonResponse(_diagram(diagram))
 
 
 @csrf_exempt

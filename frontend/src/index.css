@@ -23,3 +23,6 @@ form input { flex: 1; padding: 10px 12px; border: 1px solid #cfd3d9; border-radi
 button, select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cfd3d9; background: #fff; cursor: pointer; }
 form button { background: #2f5bea; color: #fff; border-color: #2f5bea; }
 button:disabled { opacity: .5; cursor: default; }
+.actions { display: flex; gap: 8px; align-items: center; }
+.actions.export { margin-bottom: 8px; }
+button.danger { background: #b3261e; color: #fff; border-color: #b3261e; }

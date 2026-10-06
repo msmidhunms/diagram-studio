@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import mermaid from 'mermaid'
 
-mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral' })
+mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', flowchart: { htmlLabels: false } })
 
 let counter = 0
 
 // Renders Mermaid or (already server-sanitized) SVG. Mermaid parse errors are
 // reported via onRenderError so the harness can ask the model to fix them.
-export default function Preview({ format, code, onRenderError }) {
+export default function Preview({ format, code, onRenderError, onSvg }) {
   const ref = useRef(null)
   const [error, setError] = useState(null)
 
@@ -18,7 +18,9 @@ export default function Preview({ format, code, onRenderError }) {
     mermaid
       .render(`m${++counter}`, code)
       .then(({ svg }) => {
-        if (!cancelled && ref.current) ref.current.innerHTML = svg
+        if (cancelled) return
+        if (ref.current) ref.current.innerHTML = svg
+        onSvg?.(svg)
       })
       .catch((e) => {
         document.getElementById(`dm${counter}`)?.remove()

@@ -70,6 +70,17 @@ class ApiTests(TestCase):
             self.assertEqual(len(d['versions']), 3)
         self.assertEqual(self.client.get('/api/diagrams/').json()['diagrams'][0]['id'], d['id'])
 
+    def test_rename_and_delete(self):
+        with patch('studio.harness.get_client', return_value=fake_client(reply('flowchart TD\nA-->B'))):
+            d = self.post('/api/diagrams/generate/', {'prompt': 'x'}).json()
+        url = f"/api/diagrams/{d['id']}/"
+        r = self.client.patch(url, json.dumps({'title': 'Renamed'}), content_type='application/json')
+        self.assertEqual(r.json()['title'], 'Renamed')
+        bad = self.client.patch(url, json.dumps({'title': ' '}), content_type='application/json')
+        self.assertEqual(bad.status_code, 400)
+        self.assertEqual(self.client.delete(url).status_code, 200)
+        self.assertEqual(self.client.get(url).status_code, 404)
+
     def test_validation_errors(self):
         self.assertEqual(self.post('/api/diagrams/generate/', {'prompt': ''}).status_code, 400)
         self.assertEqual(self.post('/api/diagrams/generate/', {'prompt': 'x', 'format': 'png'}).status_code, 400)

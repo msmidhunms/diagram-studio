@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from './api'
 import Preview from './Preview'
+import { downloadPng, downloadSvg, downloadText } from './exportFile'
 
 const MAX_AUTO_REPAIRS = 2
 
@@ -12,6 +13,8 @@ export default function App() {
   const [format, setFormat] = useState('mermaid')
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
+  const [renderedSvg, setRenderedSvg] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const repairs = useRef(0)
 
   const refresh = useCallback(() => api.listDiagrams().then(setDiagrams).catch((e) => setError(e.message)), [])
@@ -21,6 +24,8 @@ export default function App() {
     setCurrent(d)
     setVersionIdx(d.versions.length - 1)
     repairs.current = 0
+    setRenderedSvg(null)
+    setConfirmDelete(false)
     refresh()
   }
 
@@ -37,9 +42,25 @@ export default function App() {
     setPrompt('')
   }
 
+  const rename = async () => {
+    const title = window.prompt('Rename diagram', current.title)?.trim()
+    if (!title || title === current.title) return
+    try { show(await api.renameDiagram(current.id, title)) } catch (e) { setError(e.message) }
+  }
+
+  const remove = async () => {
+    try {
+      await api.deleteDiagram(current.id)
+      setCurrent(null)
+      setConfirmDelete(false)
+      refresh()
+    } catch (e) { setError(e.message) }
+  }
+
   const open = (id) => api.getDiagram(id).then(show).catch((e) => setError(e.message))
 
   const version = current?.versions[versionIdx]
+  const svgForExport = current?.format === 'svg' ? version?.code : renderedSvg
   const isLatest = current && versionIdx === current.versions.length - 1
 
   const onRenderError = useCallback((msg) => {
@@ -69,13 +90,32 @@ export default function App() {
           <>
             <header>
               <h2>{current.title}</h2>
+              <div className="actions">
+              <button onClick={rename}>Rename</button>
+              {confirmDelete ? (
+                <>
+                  <button className="danger" onClick={remove}>Confirm delete</button>
+                  <button onClick={() => setConfirmDelete(false)}>Cancel</button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)}>Delete</button>
+              )}
               <select value={versionIdx} onChange={(e) => setVersionIdx(Number(e.target.value))}>
                 {current.versions.map((v, i) => (
                   <option key={v.number} value={i}>v{v.number}{v.repairs ? ` (${v.repairs} repair)` : ''}</option>
                 ))}
               </select>
+              </div>
             </header>
-            <Preview format={current.format} code={version.code} onRenderError={onRenderError} />
+            <Preview format={current.format} code={version.code} onRenderError={onRenderError} onSvg={setRenderedSvg} />
+            <div className="actions export">
+              <span className="muted">Export:</span>
+              <button disabled={!svgForExport} onClick={() => downloadSvg(svgForExport, current.title)}>SVG</button>
+              <button disabled={!svgForExport} onClick={() => downloadPng(svgForExport, current.title)}>PNG</button>
+              {current.format === 'mermaid' && (
+                <button onClick={() => downloadText(version.code, current.title, 'mmd', 'text/plain')}>Mermaid (.mmd)</button>
+              )}
+            </div>
             <p className="explain">{version.explanation}</p>
             <details>
               <summary>Source</summary>

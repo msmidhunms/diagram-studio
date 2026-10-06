@@ -14,3 +14,6 @@ export const generate = (body) =>
   request('/diagrams/generate/', { method: 'POST', body: JSON.stringify(body) })
 export const repair = (id, error) =>
   request(`/diagrams/${id}/repair/`, { method: 'POST', body: JSON.stringify({ error }) })
+export const renameDiagram = (id, title) =>
+  request(`/diagrams/${id}/`, { method: 'PATCH', body: JSON.stringify({ title }) })
+export const deleteDiagram = (id) => request(`/diagrams/${id}/`, { method: 'DELETE' })
