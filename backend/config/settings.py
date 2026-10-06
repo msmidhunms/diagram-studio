@@ -131,8 +131,10 @@ MAILERS = {
     },
 }
 
-# DeepSeek harness (OpenAI-compatible API)
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
-DEEPSEEK_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
-DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat')
+# LLM harness: provider is one of openai, deepseek, gemini, ollama, openrouter,
+# anthropic, openai_compatible (see studio/llm.py)
+LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'deepseek')
+LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
+LLM_BASE_URL = os.environ.get('LLM_BASE_URL', '')
+LLM_MODEL = os.environ.get('LLM_MODEL', '')
 HARNESS_MAX_REPAIRS = int(os.environ.get('HARNESS_MAX_REPAIRS', '2'))

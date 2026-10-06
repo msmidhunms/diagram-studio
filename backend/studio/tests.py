@@ -10,10 +10,7 @@ from .sanitize import InvalidDiagram, check_mermaid, sanitize_svg
 
 def fake_client(*replies):
     replies = list(replies)
-    def create(**kw):
-        content = replies.pop(0)
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
-    return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    return SimpleNamespace(complete=lambda messages: replies.pop(0))
 
 
 def reply(code, title='T'):
@@ -43,6 +40,10 @@ class SanitizeTests(TestCase):
 
 
 class HarnessTests(TestCase):
+    def test_json_wrapped_in_prose_is_accepted(self):
+        client = fake_client('Sure! ' + reply('flowchart TD\nA-->B') + ' Hope it helps.')
+        self.assertEqual(harness.generate('x', 'mermaid', client=client).repairs, 0)
+
     def test_repairs_invalid_then_succeeds(self):
         client = fake_client('not json', reply('flowchart TD\nA-->B'))
         r = harness.generate('x', 'mermaid', client=client)
@@ -74,5 +75,21 @@ class ApiTests(TestCase):
         self.assertEqual(self.post('/api/diagrams/generate/', {'prompt': 'x', 'format': 'png'}).status_code, 400)
 
     def test_missing_api_key_is_502(self):
-        with self.settings(DEEPSEEK_API_KEY=''):
+        with self.settings(LLM_PROVIDER='openai', LLM_API_KEY=''):
             self.assertEqual(self.post('/api/diagrams/generate/', {'prompt': 'x'}).status_code, 502)
+
+
+class LLMConfigTests(TestCase):
+    def test_provider_resolution(self):
+        from .llm import AnthropicChat, LLMConfigError, OpenAIChat, get_llm
+        with self.settings(LLM_PROVIDER='ollama', LLM_API_KEY='', LLM_MODEL='', LLM_BASE_URL=''):
+            llm = get_llm()
+            self.assertIsInstance(llm, OpenAIChat)
+            self.assertEqual(llm.model, 'llama3.1')
+        with self.settings(LLM_PROVIDER='anthropic', LLM_API_KEY='k', LLM_MODEL='', LLM_BASE_URL=''):
+            self.assertIsInstance(get_llm(), AnthropicChat)
+        with self.settings(LLM_PROVIDER='nope'), self.assertRaises(LLMConfigError):
+            get_llm()
+        with self.settings(LLM_PROVIDER='openai_compatible', LLM_BASE_URL='http://x/v1', LLM_MODEL=''), \
+                self.assertRaises(LLMConfigError):
+            get_llm()

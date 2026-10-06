@@ -1,4 +1,4 @@
-"""DeepSeek harness: prompt -> structured diagram, with a validate-and-repair loop.
+"""LLM harness: prompt -> structured diagram, with a validate-and-repair loop.
 
 The model is asked for a JSON object {title, explanation, code}. Output is validated
 (and sanitized for SVG); on failure the error is fed back to the model for a bounded
@@ -9,8 +9,8 @@ import json
 from dataclasses import dataclass
 
 from django.conf import settings
-from openai import OpenAI
 
+from .llm import LLMConfigError, get_llm
 from .sanitize import InvalidDiagram, check_mermaid, sanitize_svg
 
 SYSTEM_PROMPTS = {
@@ -48,26 +48,31 @@ class Result:
     repairs: int
 
 
-def get_client() -> OpenAI:
-    if not settings.DEEPSEEK_API_KEY:
-        raise HarnessError('DEEPSEEK_API_KEY is not set')
-    return OpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_BASE_URL)
+def get_client():
+    try:
+        return get_llm()
+    except LLMConfigError as e:
+        raise HarnessError(str(e))
 
 
 def _complete(client, messages) -> str:
-    resp = client.chat.completions.create(
-        model=settings.DEEPSEEK_MODEL,
-        messages=messages,
-        response_format={'type': 'json_object'},
-        temperature=0.2,
-        max_tokens=8000,
-    )
-    return resp.choices[0].message.content or ''
+    return client.complete(messages)
+
+
+def _extract_json(raw: str):
+    """Models without a JSON mode may wrap the object in prose or fences."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        start, end = raw.find('{'), raw.rfind('}')
+        if start == -1 or end <= start:
+            raise
+        return json.loads(raw[start:end + 1])
 
 
 def _parse(fmt: str, raw: str) -> Result:
     try:
-        data = json.loads(raw)
+        data = _extract_json(raw)
         code = data['code']
     except (json.JSONDecodeError, KeyError, TypeError):
         raise InvalidDiagram('Response must be a JSON object with a "code" string field')
