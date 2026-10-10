@@ -36,6 +36,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'studio',
+    'songs',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -138,3 +139,13 @@ LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
 LLM_BASE_URL = os.environ.get('LLM_BASE_URL', '')
 LLM_MODEL = os.environ.get('LLM_MODEL', '')
 HARNESS_MAX_REPAIRS = int(os.environ.get('HARNESS_MAX_REPAIRS', '2'))
+
+# Song studio audio. ElevenLabs gives sung vocals (Music API) and native-sounding speech;
+# OpenAI can be used for speech only. TTS_PROVIDER: elevenlabs | openai | '' (browser voices).
+ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY', '')
+ELEVENLABS_TTS_MODEL = os.environ.get('ELEVENLABS_TTS_MODEL', 'eleven_v3')
+ELEVENLABS_FEMALE_VOICE = os.environ.get('ELEVENLABS_FEMALE_VOICE', '21m00Tcm4TlvDq8ikWAM')
+ELEVENLABS_MALE_VOICE = os.environ.get('ELEVENLABS_MALE_VOICE', 'JBFqnCBsd6RMkjVDRZzb')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+OPENAI_TTS_MODEL = os.environ.get('OPENAI_TTS_MODEL', 'gpt-4o-mini-tts')
+TTS_PROVIDER = os.environ.get('TTS_PROVIDER', 'elevenlabs' if ELEVENLABS_API_KEY else '')

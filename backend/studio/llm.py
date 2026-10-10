@@ -32,9 +32,9 @@ class OpenAIChat:
         self.model = model
         self.client = OpenAI(api_key=api_key or 'not-needed', base_url=base_url)
 
-    def complete(self, messages) -> str:
+    def complete(self, messages, temperature=0.2) -> str:
         resp = self.client.chat.completions.create(
-            model=self.model, messages=messages, temperature=0.2, max_tokens=8000,
+            model=self.model, messages=messages, temperature=temperature, max_tokens=8000,
             response_format={'type': 'json_object'})
         return resp.choices[0].message.content or ''
 
@@ -45,11 +45,11 @@ class AnthropicChat:
         self.model = model
         self.client = anthropic.Anthropic(api_key=api_key)
 
-    def complete(self, messages) -> str:
+    def complete(self, messages, temperature=0.2) -> str:
         system = '\n\n'.join(m['content'] for m in messages if m['role'] == 'system')
         turns = [m for m in messages if m['role'] != 'system']
         resp = self.client.messages.create(
-            model=self.model, system=system, messages=turns, max_tokens=8000, temperature=0.2)
+            model=self.model, system=system, messages=turns, max_tokens=8000, temperature=temperature)
         return ''.join(b.text for b in resp.content if b.type == 'text')
 
 

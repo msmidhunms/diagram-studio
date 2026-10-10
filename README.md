@@ -2,6 +2,8 @@
 
 Turn plain-English prompts into Mermaid and SVG system architecture diagrams, powered by a provider-agnostic LLM harness (DeepSeek, OpenAI, Claude, Gemini, Ollama, ...).
 
+Also includes **Song Studio** (tab at the top of the app): write lyrics in one window and turn them into music in the other. See [Song Studio](#song-studio).
+
 **Stack:** Django (backend, harness, persistence) + React/Vite (frontend).
 
 ## Run
@@ -46,3 +48,20 @@ Larger models give much better diagrams than small local ones.
 5. Every result is stored as a new version of the diagram.
 
 Note: the API has no authentication and CSRF is disabled for it — it is meant for local use. Add auth before exposing it.
+
+## Song Studio
+
+Open the **Song Studio** tab (or `http://localhost:5173/#songs`). It has two windows:
+
+1. **Lyrics**: pick a language (29 are available, including Hindi, Malayalam, Tamil, Spanish, Japanese and Arabic), a genre and a mood. Write lyrics yourself or have the LLM write or revise them. The LLM writes in the language's native script and idiom, not as a literal translation. Mark sections with `[Verse 1]`, `[Chorus]`, `[Bridge]` and so on. The gutter shows an approximate syllable count for each line so lines fit the beat.
+2. **Music**: set the tempo, key and singer, then either:
+   - **AI singer**: produces a full song (MP3) with a human-sounding singer performing your lyrics in the chosen language with native pronunciation (ElevenLabs Music, using a composition plan built from your sections). Needs `ELEVENLABS_API_KEY`.
+   - **Studio preview**: plays instantly in the browser. It generates a backing track (drums, bass, chords, arpeggio, styled by genre) and voices each lyric line on the downbeat with highlighted, karaoke-style lines. The voice is a neural TTS voice if `TTS_PROVIDER` is set (`elevenlabs`, or `openai` with `OPENAI_API_KEY`). Otherwise it uses the best native voice the browser has for that language (Edge and Chrome "Natural" or "Google" voices sound most human). You can export the result as WAV. The preview voice speaks the lines in rhythm; it does not sing. Use the AI singer for real singing.
+
+```bash
+# backend/.env
+ELEVENLABS_API_KEY=...       # sung vocals + native-sounding speech
+TTS_PROVIDER=elevenlabs      # or openai; leave empty for browser voices
+```
+
+API: `GET/POST /api/songs/`, `GET/PATCH/DELETE /api/songs/<id>/`, `POST /api/songs/lyrics/`, `POST /api/songs/<id>/compose/` (returns `audio/mpeg`), `POST /api/songs/speak/`, `GET /api/songs/capabilities/`.
