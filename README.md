@@ -39,6 +39,7 @@ Larger models give much better diagrams than small local ones.
 
 ## How the harness works
 
+0. **Clarify (new diagrams only):** short requests go to a clarifier first. If the request is too vague to model, the API returns `{needs_clarification: true, questions: [...]}` instead of a diagram; the UI shows the questions and resends with `answers` (or `clarify: false` to skip). Requests of `HARNESS_CLARIFY_MAX_WORDS` (25) words or more skip this step; `HARNESS_CLARIFY=0` disables it.
 1. `POST /api/diagrams/generate/` sends the prompt (plus the current system model when iterating) to the configured model (JSON mode where the provider supports it). It returns `{title, explanation, model}`, a structured system model of groups/trust zones, typed nodes and styled edges (`backend/studio/sysmodel.py`).
 2. The model is validated (duplicate ids, dangling edges, group cycles) and then rendered without the LLM:
    - **Auto-layout:** in the browser, ELK computes positions and orthogonal edge routes and `frontend/src/autolayout.js` draws the SVG.

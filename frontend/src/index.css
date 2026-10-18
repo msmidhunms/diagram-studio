@@ -68,3 +68,14 @@ button.danger { background: #b3261e; color: #fff; border-color: #b3261e; }
 .compare-legend .swatch { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; }
 .compare-legend .swatch i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .views button:disabled { opacity: .4; cursor: default; }
+.clarify { flex: 1; max-width: 760px; margin: 24px auto; display: flex; flex-direction: column; gap: 14px; position: static; padding: 0; }
+.clarify h3 { margin: 0; font-size: 18px; }
+.clarify p { margin: 0; }
+.clarify fieldset { border: 1px solid #e3e5e8; border-radius: 8px; padding: 12px 14px; margin: 0; }
+.clarify legend { font-weight: 600; font-size: 14px; padding: 0 4px; }
+.clarify .options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.clarify .options button { border-radius: 999px; padding: 6px 12px; font-size: 13px; background: #fff; color: #1c1e21; border-color: #cfd3d9; }
+.clarify .options button.on { background: #e6ecfd; border-color: #2f5bea; color: #2f5bea; }
+.clarify .options input { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #cfd3d9; border-radius: 999px; font-size: 13px; }
+.clarify .actions button { background: #fff; color: #1c1e21; border-color: #cfd3d9; }
+.clarify .actions button.primary { background: #2f5bea; color: #fff; border-color: #2f5bea; }

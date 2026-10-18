@@ -4,7 +4,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from . import harness, icons
+from . import clarifier, harness, icons
 from .models import Diagram, DiagramVersion
 from .sysmodel import diff_models
 
@@ -99,6 +99,18 @@ def generate(request):
         if fmt not in harness.FORMATS:
             raise ValueError('format must be "mermaid" or "svg"')
         diagram, previous = None, None
+        if not data.get('diagram_id'):
+            # new diagram: ask first if the request is vague (unless answered or skipped)
+            if data.get('answers'):
+                if not isinstance(data['answers'], list):
+                    raise ValueError('answers must be a list of {question, answer}')
+                prompt = clarifier.with_answers(prompt, data['answers'])
+                if len(prompt) > MAX_PROMPT + 2000:
+                    raise ValueError('answers are too long')
+            elif data.get('clarify', True):
+                questions = clarifier.questions_for(harness.get_client(), prompt, harness._extract_json)
+                if questions:
+                    return JsonResponse({'needs_clarification': True, 'prompt': prompt, 'questions': questions})
         if data.get('diagram_id'):
             try:
                 diagram = Diagram.objects.get(pk=data['diagram_id'])

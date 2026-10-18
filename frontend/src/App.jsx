@@ -35,6 +35,45 @@ function Review({ review }) {
   )
 }
 
+// Questions the clarifier asks before drawing a new diagram from a vague request
+function Clarify({ request, busy, onAnswer, onSkip, onEdit }) {
+  const [answers, setAnswers] = useState({}) // question index -> answer text
+  const [custom, setCustom] = useState({}) // question index -> typed "other" answer
+  const answered = request.questions.map((q, i) => (custom[i]?.trim() || answers[i] || '')).filter(Boolean).length
+  const submit = (e) => {
+    e.preventDefault()
+    onAnswer(request.questions.map((q, i) => ({ question: q.question, answer: custom[i]?.trim() || answers[i] || '' }))
+      .filter((a) => a.answer))
+  }
+  return (
+    <form className="clarify" onSubmit={submit}>
+      <h3>A few questions first</h3>
+      <p className="muted">“{request.prompt}” could be drawn several ways. Answer what you can; anything left blank uses a sensible default.</p>
+      {request.questions.map((q, i) => (
+        <fieldset key={i}>
+          <legend>{q.question}</legend>
+          <div className="options">
+            {q.options.map((o) => (
+              <button type="button" key={o} aria-pressed={answers[i] === o && !custom[i]?.trim()}
+                className={answers[i] === o && !custom[i]?.trim() ? 'on' : ''}
+                onClick={() => { setAnswers({ ...answers, [i]: answers[i] === o ? '' : o }); setCustom({ ...custom, [i]: '' }) }}>
+                {o}
+              </button>
+            ))}
+            <input placeholder="Other…" value={custom[i] || ''} aria-label={`Other answer: ${q.question}`}
+              onChange={(e) => setCustom({ ...custom, [i]: e.target.value })} />
+          </div>
+        </fieldset>
+      ))}
+      <div className="actions">
+        <button className="primary" disabled={busy || !answered}>Generate diagram</button>
+        <button type="button" disabled={busy} onClick={onSkip}>Skip, use defaults</button>
+        <button type="button" disabled={busy} onClick={onEdit}>Edit request</button>
+      </div>
+    </form>
+  )
+}
+
 // Legend and counts while comparing two versions on the canvas
 function CompareLegend({ summary, from, to }) {
   const part = (c, noun) => {
@@ -123,8 +162,10 @@ export default function App() {
   const [view, setView] = useState('mermaid') // renderer: 'svg' (Auto-layout) or 'mermaid'
   const [perspective, setPerspective] = useState('full') // which view of the system, see views.js
   const [compareIdx, setCompareIdx] = useState(null) // version index to diff against, or null
+  const [clarify, setClarify] = useState(null) // {prompt, format, questions} while asking
   const [confirmDelete, setConfirmDelete] = useState(false)
   const repairs = useRef(0)
+  const promptInput = useRef(null)
 
   const refresh = useCallback(() => api.listDiagrams().then(setDiagrams).catch((e) => setError(e.message)), [])
   useEffect(() => { refresh() }, [refresh])
@@ -135,6 +176,7 @@ export default function App() {
     setView(d.format)
     setPerspective('full')
     setCompareIdx(null)
+    setClarify(null)
     repairs.current = 0
     setRenderedSvg(null)
     setConfirmDelete(false)
@@ -147,10 +189,22 @@ export default function App() {
     try { show(await fn()) } catch (e) { setError(e.message) } finally { setBusy(null) }
   }
 
+  // New diagram: the backend may answer with clarifying questions instead of a diagram
+  const generateNew = async (body, label) => {
+    setBusy(label)
+    setError(null)
+    try {
+      const r = await api.generate(body)
+      if (r.needs_clarification) setClarify({ prompt: r.prompt, format: body.format, questions: r.questions })
+      else show(r)
+    } catch (e) { setError(e.message) } finally { setBusy(null) }
+  }
+
   const submit = (e) => {
     e.preventDefault()
     if (!prompt.trim() || busy) return
-    run('Generating and reviewing…', () => api.generate({ prompt, format, diagram_id: current?.id }))
+    if (current) run('Generating and reviewing…', () => api.generate({ prompt, diagram_id: current.id }))
+    else generateNew({ prompt, format }, 'Reading your request…')
     setPrompt('')
   }
 
@@ -226,7 +280,7 @@ export default function App() {
     <div className="app">
       <aside>
         <h1>Diagram Studio</h1>
-        <button onClick={() => { setCurrent(null); setError(null) }}>+ New diagram</button>
+        <button onClick={() => { setCurrent(null); setError(null); setClarify(null) }}>+ New diagram</button>
         <ul>
           {diagrams.map((d) => (
             <li key={d.id}>
@@ -335,16 +389,31 @@ export default function App() {
             {!isLatest && <p className="muted">Viewing an older version — edits apply to the latest.</p>}
           </>
         ) : (
+          clarify ? (
+            <Clarify
+              key={clarify.prompt}
+              request={clarify}
+              busy={!!busy}
+              onAnswer={(answers) => generateNew({ prompt: clarify.prompt, format: clarify.format, answers }, 'Generating and reviewing…')}
+              onSkip={() => generateNew({ prompt: clarify.prompt, format: clarify.format, clarify: false }, 'Generating and reviewing…')}
+              onEdit={() => {
+                setPrompt(clarify.prompt)
+                setClarify(null)
+                setTimeout(() => promptInput.current?.focus()) // after the form re-renders
+              }}
+            />
+          ) : (
           <div className="empty">
             <p>Describe a system and get an architecture diagram.</p>
             <p className="muted">e.g. “Web app with React frontend, Django API, Postgres, Redis cache and a Celery worker”</p>
           </div>
+          )
         )}
 
         {error && <p className="error">{error}</p>}
         {busy && <p className="muted">{busy}</p>}
 
-        <form onSubmit={submit}>
+        {!(clarify && !current) && <form onSubmit={submit}>
           {!current && (
             <select value={format} onChange={(e) => setFormat(e.target.value)}>
               <option value="svg">Auto-layout</option>
@@ -352,13 +421,14 @@ export default function App() {
             </select>
           )}
           <input
+            ref={promptInput}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={current ? 'Describe a change…' : 'Describe your system…'}
             disabled={!!busy}
           />
           <button disabled={!!busy || !prompt.trim()}>{current ? 'Update' : 'Generate'}</button>
-        </form>
+        </form>}
       </main>
     </div>
   )

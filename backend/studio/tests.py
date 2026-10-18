@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 
 from . import critic, harness
+from .models import Diagram
 from .render_mermaid import to_mermaid
 from .sanitize import InvalidDiagram, check_mermaid, sanitize_svg
 from .sysmodel import diff_models, validate_model
@@ -157,7 +158,7 @@ class SystemModelTests(TestCase):
         self.assertIsNone(diff_models(None, new))
 
 
-@override_settings(HARNESS_CRITIC_ROUNDS=-1)
+@override_settings(HARNESS_CRITIC_ROUNDS=-1, HARNESS_CLARIFY=False)
 class ApiTests(TestCase):
     def post(self, url, body):
         return self.client.post(url, json.dumps(body), content_type='application/json')
@@ -208,7 +209,7 @@ def creply(score, *issues, summary='s'):
                        'issues': [{'severity': s, 'target': t, 'problem': p, 'fix': 'f'} for s, t, p in issues]})
 
 
-@override_settings(HARNESS_CRITIC_ROUNDS=1, LLM_CRITIC_MODEL='')
+@override_settings(HARNESS_CRITIC_ROUNDS=1, LLM_CRITIC_MODEL='', HARNESS_CLARIFY=False)
 class CriticTests(TestCase):
     def test_lint_finds_structural_issues(self):
         m = validate_model({'groups': [{'id': 'empty', 'label': 'Empty'}],
@@ -365,3 +366,70 @@ class MermaidParityTests(TestCase):
         fixtures = Path(__file__).resolve().parents[2] / 'shared' / 'fixtures'
         model = validate_model(json.loads((fixtures / 'ecommerce.json').read_text()))
         self.assertEqual(to_mermaid(model) + '\n', (fixtures / 'ecommerce.mmd').read_text())
+
+
+@override_settings(HARNESS_CRITIC_ROUNDS=-1, HARNESS_CLARIFY=True, HARNESS_CLARIFY_MAX_WORDS=25)
+class ClarifierTests(TestCase):
+    QUESTIONS = json.dumps({'ready': False, 'questions': [
+        {'question': 'Which cloud?', 'options': ['AWS', 'Azure', 'GCP', 'On-prem', 'Other']},
+        {'question': '  ', 'options': ['ignored']},
+        {'question': 'Real-time chat or async messages?', 'options': ['Real-time', 'Async']},
+    ]})
+
+    def post(self, body):
+        return self.client.post('/api/diagrams/generate/', json.dumps(body), content_type='application/json')
+
+    def test_parse_questions(self):
+        from .clarifier import parse_questions
+        qs = parse_questions(json.loads(self.QUESTIONS))
+        self.assertEqual([q['question'] for q in qs], ['Which cloud?', 'Real-time chat or async messages?'])
+        self.assertEqual(len(qs[0]['options']), 4)  # capped
+        self.assertEqual(parse_questions({'ready': True, 'questions': [{'question': 'x?'}]}), [])
+        self.assertEqual(parse_questions('nonsense'), [])
+
+    def test_vague_request_returns_questions_and_creates_nothing(self):
+        client = fake_client(self.QUESTIONS)
+        with patch('studio.harness.get_client', return_value=client):
+            r = self.post({'prompt': 'a chat app'}).json()
+        self.assertTrue(r['needs_clarification'])
+        self.assertEqual(r['prompt'], 'a chat app')
+        self.assertEqual(len(r['questions']), 2)
+        self.assertEqual(Diagram.objects.count(), 0)
+
+    def test_answers_are_added_to_the_prompt_and_stored(self):
+        client = fake_client(mreply('a', 'b'))
+        answers = [{'question': 'Which cloud?', 'answer': 'AWS'}, {'question': 'Unanswered?', 'answer': ' '}]
+        with patch('studio.harness.get_client', return_value=client):
+            d = self.post({'prompt': 'a chat app', 'answers': answers}).json()
+        self.assertEqual(d['versions'][0]['prompt'], 'a chat app\n\nClarifications:\n- Which cloud? AWS')
+        self.assertIn('- Which cloud? AWS', client.calls[0][-1]['content'])  # generator saw the answers
+        self.assertEqual(len(client.calls), 1)  # answered: no second clarifier call
+
+    def test_skip_detailed_and_edit_requests_never_ask(self):
+        long_prompt = ' '.join(['word'] * 25)
+        for body in ({'prompt': 'a chat app', 'clarify': False}, {'prompt': long_prompt}):
+            client = fake_client(mreply('a'))
+            with patch('studio.harness.get_client', return_value=client):
+                d = self.post(body).json()
+            self.assertIn('versions', d)
+            self.assertEqual(len(client.calls), 1, body)  # generator only
+        with patch('studio.harness.get_client', return_value=fake_client(mreply('a', 'b'))) as gc:
+            r = self.post({'prompt': 'add b', 'diagram_id': d['id']}).json()
+        self.assertEqual(len(r['versions']), 2)
+        self.assertEqual(len(gc.return_value.calls), 1)
+
+    def test_clarifier_failure_or_ready_means_generate(self):
+        for first in ('not json at all', json.dumps({'ready': True, 'questions': []})):
+            client = fake_client(first, mreply('a'))
+            with patch('studio.harness.get_client', return_value=client):
+                d = self.post({'prompt': 'a chat app'}).json()
+            self.assertIn('versions', d, first)
+
+    def test_disabled_by_setting(self):
+        client = fake_client(mreply('a'))
+        with self.settings(HARNESS_CLARIFY=False), patch('studio.harness.get_client', return_value=client):
+            self.assertIn('versions', self.post({'prompt': 'a chat app'}).json())
+        self.assertEqual(len(client.calls), 1)
+
+    def test_bad_answers_are_400(self):
+        self.assertEqual(self.post({'prompt': 'x', 'answers': 'AWS'}).status_code, 400)

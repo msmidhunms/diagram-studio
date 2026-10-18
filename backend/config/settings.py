@@ -146,3 +146,8 @@ LLM_CRITIC_MODEL = os.environ.get('LLM_CRITIC_MODEL', '')
 # Cloud icon artwork is fetched server-side (third-party CDNs don't reliably allow
 # browser CORS) and cached here, so icons keep working offline after first use.
 ICON_CACHE_DIR = Path(os.environ.get('ICON_CACHE_DIR', BASE_DIR / '.icon_cache'))
+
+# Clarifier: ask up to 3 questions before drawing a new diagram from a vague request.
+# Requests with HARNESS_CLARIFY_MAX_WORDS or more words are considered detailed and skip it.
+HARNESS_CLARIFY = os.environ.get('HARNESS_CLARIFY', '1') not in ('0', 'false', 'False', '')
+HARNESS_CLARIFY_MAX_WORDS = int(os.environ.get('HARNESS_CLARIFY_MAX_WORDS', '25'))
