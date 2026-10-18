@@ -5,6 +5,8 @@ import { downloadPng, downloadSvg, downloadText } from './exportFile'
 import { MODEL_EXPORTS } from './exporters'
 import { toMermaid, toMermaidSequence } from './exporters/mermaid'
 import { VIEWS, deriveModel } from './views'
+import { DIFF_STYLES } from './autolayout'
+import { diffModels } from './diff'
 
 const MAX_AUTO_REPAIRS = 2
 
@@ -30,6 +32,33 @@ function Review({ review }) {
         </ul>
       ) : <p className="muted">No issues found.</p>}
     </details>
+  )
+}
+
+// Legend and counts while comparing two versions on the canvas
+function CompareLegend({ summary, from, to }) {
+  const part = (c, noun) => {
+    const bits = [['added', '+'], ['removed', '−'], ['changed', '~']].filter(([k]) => c[k]).map(([k, sign]) => (
+      <span key={k} style={{ color: DIFF_STYLES[k].color }}>{sign}{c[k]}</span>
+    ))
+    return bits.length ? <span className="legend-part">{noun} {bits}</span> : null
+  }
+  return (
+    <p className="changes compare-legend">
+      <strong>v{to} compared with v{from}:</strong>
+      {summary.identical ? <span className="muted">no differences in this view</span> : (
+        <>
+          {part(summary.nodes, 'components')}
+          {part(summary.edges, 'connections')}
+          {part(summary.groups, 'groups')}
+          <span className="muted">
+            {Object.entries(DIFF_STYLES).map(([k, st]) => (
+              <span key={k} className="swatch"><i style={{ background: st.color }} />{st.title.toLowerCase()}</span>
+            ))}
+          </span>
+        </>
+      )}
+    </p>
   )
 }
 
@@ -93,6 +122,7 @@ export default function App() {
   const [renderedSvg, setRenderedSvg] = useState(null)
   const [view, setView] = useState('mermaid') // renderer: 'svg' (Auto-layout) or 'mermaid'
   const [perspective, setPerspective] = useState('full') // which view of the system, see views.js
+  const [compareIdx, setCompareIdx] = useState(null) // version index to diff against, or null
   const [confirmDelete, setConfirmDelete] = useState(false)
   const repairs = useRef(0)
 
@@ -104,6 +134,7 @@ export default function App() {
     setVersionIdx(d.versions.length - 1)
     setView(d.format)
     setPerspective('full')
+    setCompareIdx(null)
     repairs.current = 0
     setRenderedSvg(null)
     setConfirmDelete(false)
@@ -153,13 +184,25 @@ export default function App() {
   const isSequence = !isFull && perspective === 'sequence'
   const viewModel = useMemo(
     () => (version?.model ? deriveModel(version.model, perspective) : null), [version, perspective])
-  const previewView = isSequence ? 'mermaid' : activeView
+  // Compare mode: the selected view of both versions, merged into one diff model (diff.js)
+  const compareVersion = compareIdx !== null && compareIdx !== versionIdx ? current?.versions[compareIdx] : null
+  const comparing = Boolean(compareVersion?.model && viewModel && !isSequence)
+  const diff = useMemo(
+    () => (comparing ? diffModels(deriveModel(compareVersion.model, perspective), viewModel) : null),
+    [comparing, compareVersion, perspective, viewModel])
+  const previewView = isSequence ? 'mermaid' : comparing ? 'svg' : activeView
   const previewCode = useMemo(() => {
     if (isFull) return version?.code
     return isSequence ? toMermaidSequence(version.model) : toMermaid(viewModel)
   }, [isFull, isSequence, version, viewModel])
   const viewLabel = VIEWS.find((v) => v.id === perspective)?.label
-  const fileTitle = (suffix) => [current.title, isFull ? null : viewLabel, suffix].filter(Boolean).join(' ')
+  const fileTitle = (suffix) => [current.title, isFull ? null : viewLabel,
+    comparing ? `v${version.number} vs v${compareVersion.number}` : null, suffix].filter(Boolean).join(' ')
+  const selectVersion = (i) => {
+    setRenderedSvg(null)
+    setVersionIdx(i)
+    if (i === compareIdx) setCompareIdx(null)
+  }
 
   const exportAs = async (id) => {
     if (id === 'mermaid') return downloadText(previewCode, fileTitle(), 'mmd', 'text/plain')
@@ -174,10 +217,10 @@ export default function App() {
 
   const onRenderError = useCallback((msg) => {
     // only the stored Mermaid comes from the model; derived views are our own rendering
-    if (!isFull || !isLatest || busy || repairs.current >= MAX_AUTO_REPAIRS) return
+    if (!isFull || comparing || !isLatest || busy || repairs.current >= MAX_AUTO_REPAIRS) return
     repairs.current += 1
     run(`Fixing syntax (attempt ${repairs.current})…`, () => api.repair(current.id, msg))
-  }, [isFull, isLatest, busy, current]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isFull, comparing, isLatest, busy, current]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="app">
@@ -211,23 +254,41 @@ export default function App() {
                 <button onClick={() => setConfirmDelete(true)}>Delete</button>
               )}
               {version.model && (
-                <select value={previewView} disabled={isSequence} onChange={(e) => { setRenderedSvg(null); setView(e.target.value) }} title="Renderer">
+                <select value={previewView} disabled={isSequence || comparing} onChange={(e) => { setRenderedSvg(null); setView(e.target.value) }} title="Renderer">
                   <option value="svg">Auto-layout</option>
                   <option value="mermaid">Mermaid</option>
                 </select>
               )}
-              <select value={versionIdx} onChange={(e) => { setRenderedSvg(null); setVersionIdx(Number(e.target.value)) }}>
+              <select value={versionIdx} onChange={(e) => selectVersion(Number(e.target.value))} title="Version">
                 {current.versions.map((v, i) => (
                   <option key={v.number} value={i}>v{v.number}{v.repairs ? ` (${v.repairs} repair)` : ''}</option>
                 ))}
               </select>
+              {version.model && current.versions.filter((v) => v.model).length > 1 && (
+                <select
+                  value={compareVersion ? compareIdx : ''}
+                  title="Compare with another version"
+                  onChange={(e) => {
+                    setRenderedSvg(null)
+                    setCompareIdx(e.target.value === '' ? null : Number(e.target.value))
+                    if (perspective === 'sequence') setPerspective('full')
+                  }}
+                >
+                  <option value="">Compare: off</option>
+                  {current.versions.map((v, i) => (i !== versionIdx && v.model
+                    ? <option key={v.number} value={i}>Compare with v{v.number}</option> : null))}
+                </select>
+              )}
               </div>
             </header>
-            <Changes changes={version.changes} />
+            {comparing
+              ? <CompareLegend summary={diff.summary} from={compareVersion.number} to={version.number} />
+              : <Changes changes={version.changes} />}
             {version.model && (
               <div className="views" role="tablist" aria-label="View">
                 {VIEWS.map((v) => (
                   <button key={v.id} role="tab" aria-selected={perspective === v.id} title={v.hint}
+                    disabled={compareVersion && v.id === 'sequence'}
                     className={perspective === v.id ? 'on' : ''}
                     onClick={() => { setRenderedSvg(null); setPerspective(v.id) }}>
                     {v.label}
@@ -239,14 +300,15 @@ export default function App() {
             {viewModel && !viewModel.nodes.length ? (
               <p className="preview empty-view muted">Nothing to show in this view: {VIEWS.find((v) => v.id === perspective).hint.toLowerCase()}.</p>
             ) : (
-              <Preview view={previewView} code={previewCode} model={viewModel} onRenderError={onRenderError} onSvg={setRenderedSvg} />
+              <Preview view={previewView} code={previewCode} model={comparing ? diff.model : viewModel}
+                onRenderError={onRenderError} onSvg={setRenderedSvg} />
             )}
             <div className="actions export">
               <span className="muted">Export:</span>
               <button disabled={!svgForExport} onClick={() => downloadSvg(svgForExport, fileTitle())}>SVG</button>
               <button disabled={!svgForExport} onClick={() => downloadPng(svgForExport, fileTitle())}>PNG</button>
               {(hasMermaid || version.model) && (
-                <select value="" onChange={(e) => exportAs(e.target.value)} aria-label="Export as another format">
+                <select value="" disabled={comparing} title={comparing ? 'Turn off compare to export other formats' : undefined} onChange={(e) => exportAs(e.target.value)} aria-label="Export as another format">
                   <option value="" disabled>More formats…</option>
                   {hasMermaid && <option value="mermaid">Mermaid (.mmd)</option>}
                   {version.model && !isSequence && MODEL_EXPORTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
@@ -258,7 +320,7 @@ export default function App() {
             <History
               versions={current.versions}
               selected={versionIdx}
-              onSelect={(i) => { setRenderedSvg(null); setVersionIdx(i) }}
+              onSelect={selectVersion}
             />
             <details>
               <summary>Source</summary>

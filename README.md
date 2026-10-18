@@ -52,6 +52,8 @@ Larger models give much better diagrams than small local ones.
 
 **Views:** Full, High-level, Deployment, Data flow and Sequence are derived from the same model in the browser (`frontend/src/views.js`), so switching is instant and exports follow the selected view.
 
+**Compare versions:** pick "Compare with vN" to see added (green), removed (red) and changed (amber) components and connections on the canvas, in any view except Sequence.
+
 **Cloud icons:** components that are managed AWS, Azure or GCP services get an `icon` key from `shared/cloud_icons.json` (shared by backend and frontend). The backend serves the artwork at `/api/icons/<key>.svg`, fetched once, sanitized and cached in `backend/.icon_cache/`, because the icon CDNs don't reliably allow browser requests. Without network access, icons fall back to a provider badge.
 
 **Exports** (all from the system model, no LLM call): SVG, PNG, Mermaid, Draw.io, Excalidraw, PlantUML, C4 container (C4-PlantUML), D2 and the raw model JSON. Draw.io and Excalidraw files use the same ELK layout as the Auto-layout view (`frontend/src/exporters/`).

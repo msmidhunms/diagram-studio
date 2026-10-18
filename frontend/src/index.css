@@ -63,3 +63,8 @@ button.danger { background: #b3261e; color: #fff; border-color: #b3261e; }
 .views button.on { color: #2f5bea; border-bottom-color: #2f5bea; font-weight: 600; }
 .views .muted { margin-left: 8px; }
 .empty-view { display: grid; place-content: center; text-align: center; }
+.compare-legend { align-items: center; }
+.compare-legend .legend-part { display: inline-flex; gap: 6px; }
+.compare-legend .swatch { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; }
+.compare-legend .swatch i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.views button:disabled { opacity: .4; cursor: default; }

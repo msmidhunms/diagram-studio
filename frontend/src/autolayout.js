@@ -1,6 +1,7 @@
 // System model -> auto-laid-out SVG. ELK computes positions and orthogonal edge routes;
 // this file only measures text and draws shapes, so no LLM is involved in layout.
 import ELK from 'elkjs/lib/elk.bundled.js'
+import { describeChanges } from './diff'
 import { ICON_SLOT, fetchIcon, iconInfo, loadIcons } from './icons'
 
 const elk = new ELK()
@@ -29,6 +30,14 @@ export const GROUP_STYLES = {
   cloud: { fill: '#f3f8ff', stroke: '#5b8bd0', text: '#3b6ea5' },
   other: { fill: '#f6f8fa', stroke: '#d0d7de', text: '#57606a' },
 }
+// Visual diff (see diff.js): colours and badges for compared versions
+export const DIFF_STYLES = {
+  added: { color: '#2e7d32', badge: '+', title: 'Added' },
+  removed: { color: '#b3261e', badge: '−', title: 'Removed' },
+  changed: { color: '#b26a00', badge: '~', title: 'Changed' },
+}
+const diffOf = (x) => (x.diff && x.diff.status !== 'same' ? DIFF_STYLES[x.diff.status] : null)
+
 export const EDGE_STYLES = {
   sync: { stroke: '#57606a', width: 1.5 },
   async: { stroke: '#57606a', width: 1.5, dash: '6 4' },
@@ -113,8 +122,8 @@ function buildGraph(model) {
   return { root, measured }
 }
 
-function nodeShape(type, x, y, w, h, fill, stroke) {
-  const common = `fill="${fill}" stroke="${stroke}" stroke-width="1.5"`
+function nodeShape(type, x, y, w, h, fill, stroke, strokeWidth = 1.5) {
+  const common = `fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"`
   switch (type) {
     case 'database':
     case 'storage': {
@@ -145,14 +154,14 @@ function nodeShape(type, x, y, w, h, fill, stroke) {
   }
 }
 
-function nodeText(n, m, x, y, w, h) {
+function nodeText(n, m, x, y, w, h, strike = false) {
   const total = m.lines.length * LINE_H + (n.tech ? 14 : 0)
   const shift = n.type === 'database' || n.type === 'storage' ? 4 : 0
   let ty = y + (h - total) / 2 + 12 + shift
   const cx = x + m.icon + (w - m.icon) / 2 // text is centred in the space right of the icon
   let out = ''
   for (const line of m.lines) {
-    out += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2328">${esc(line)}</text>`
+    out += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2328"${strike ? ' text-decoration="line-through"' : ''}>${esc(line)}</text>`
     ty += LINE_H
   }
   if (n.tech) out += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="11" fill="#57606a">${esc(n.tech)}</text>`
@@ -203,10 +212,14 @@ export async function modelToSvg(model, { loadIcon = fetchIcon } = {}) {
   for (const g of [...model.groups].sort((a, b) => depth(a) - depth(b))) {
     const s = shapes.get(`g_${g.id}`)
     const st = GROUP_STYLES[g.kind] || GROUP_STYLES.other
+    const df = diffOf(g)
+    const stroke = df ? df.color : st.stroke
+    const dash = g.diff?.status === 'removed' ? '6 4' : st.dash
+    const label = df ? `${g.label} (${df.title.toLowerCase()})` : g.label
     parts.push(
-      `<rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" rx="10" fill="${st.fill}" stroke="${st.stroke}"` +
-        ` stroke-width="${st.width || 1.2}"${st.dash ? ` stroke-dasharray="${st.dash}"` : ''}/>` +
-        `<text x="${s.x + 14}" y="${s.y + 24}" font-size="12" font-weight="700" fill="${st.text}">${esc(g.label)}</text>`,
+      `<rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" rx="10" fill="${st.fill}" stroke="${stroke}"` +
+        ` stroke-width="${df ? 2 : st.width || 1.2}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>` +
+        `<text x="${s.x + 14}" y="${s.y + 24}" font-size="12" font-weight="700" fill="${df ? df.color : st.text}">${esc(label)}</text>`,
     )
   }
 
@@ -214,12 +227,18 @@ export async function modelToSvg(model, { loadIcon = fetchIcon } = {}) {
   model.edges.forEach((e, i) => {
     const edge = laid.edges.find((x) => x.id === `e${i}`)
     const st = EDGE_STYLES[e.style] || EDGE_STYLES.sync
+    const df = diffOf(e)
+    const removed = e.diff?.status === 'removed'
+    const dash = removed ? '5 4' : st.dash
     for (const sec of edge.sections || []) {
       const pts = [sec.startPoint, ...(sec.bendPoints || []), sec.endPoint]
       const d = pts.map((p, j) => `${j ? 'L' : 'M'}${p.x},${p.y}`).join(' ')
       parts.push(
-        `<path d="${d}" fill="none" stroke="${st.stroke}" stroke-width="${st.width}"` +
-          `${st.dash ? ` stroke-dasharray="${st.dash}"` : ''} marker-end="url(#arrow-${e.style})"/>`,
+        `<path d="${d}" fill="none" stroke="${df ? df.color : st.stroke}" stroke-width="${df ? Math.max(st.width, 2.2) : st.width}"` +
+          `${dash ? ` stroke-dasharray="${dash}"` : ''}${removed ? ' opacity="0.6"' : ''}` +
+          ` marker-end="url(#arrow-${df ? e.diff.status : e.style})">` +
+          (df ? `<title>${esc(df.title)} connection${e.diff.changes.length ? `\n${esc(describeChanges(e.diff.changes))}` : ''}</title>` : '') +
+          '</path>',
       )
     }
     for (const l of edge.labels || []) {
@@ -233,14 +252,27 @@ export async function modelToSvg(model, { loadIcon = fetchIcon } = {}) {
   for (const n of model.nodes) {
     const s = shapes.get(`n_${n.id}`)
     const [fill, stroke] = NODE_COLORS[n.type] || DEFAULT_COLORS
-    parts.push(nodeShape(n.type, s.x, s.y, s.width, s.height, fill, stroke) +
-      nodeIcon(n, s.x, s.y, s.height, icons) + nodeText(n, measured[n.id], s.x, s.y, s.width, s.height))
+    const df = diffOf(n)
+    const removed = n.diff?.status === 'removed'
+    let body = nodeShape(n.type, s.x, s.y, s.width, s.height, fill, df ? df.color : stroke, df ? 2.5 : 1.5) +
+      nodeIcon(n, s.x, s.y, s.height, icons) + nodeText(n, measured[n.id], s.x, s.y, s.width, s.height, removed)
+    if (df) {
+      const tip = `${df.title}${n.diff.changes.length ? `\n${describeChanges(n.diff.changes)}` : ''}`
+      body = `<g${removed ? ' opacity="0.55"' : ''}><title>${esc(tip)}</title>${body}` +
+        `<circle cx="${s.x + s.width - 4}" cy="${s.y + 4}" r="9" fill="${df.color}" stroke="#ffffff" stroke-width="2"/>` +
+        `<text x="${s.x + s.width - 4}" y="${s.y + 8.5}" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">${df.badge}</text></g>`
+    }
+    parts.push(body)
   }
 
-  const markers = Object.entries(EDGE_STYLES)
-    .map(([k, st]) =>
+  const markerColors = [
+    ...Object.entries(EDGE_STYLES).map(([k, st]) => [k, st.stroke]),
+    ...Object.entries(DIFF_STYLES).map(([k, st]) => [k, st.color]),
+  ]
+  const markers = markerColors
+    .map(([k, color]) =>
       `<marker id="arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">` +
-        `<path d="M0,0 L10,5 L0,10 z" fill="${st.stroke}"/></marker>`)
+        `<path d="M0,0 L10,5 L0,10 z" fill="${color}"/></marker>`)
     .join('')
 
   return (
