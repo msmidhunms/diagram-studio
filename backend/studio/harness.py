@@ -7,12 +7,19 @@ The diagram's format only picks the default view; both views come from the same 
 
 On invalid output the error is fed back to the model for a bounded number of repair
 attempts. Browser-side render errors can be fed back the same way through `repair()`.
+
+Generator + critic: after the generator produces a valid draft, a separate critic agent
+(critic.py) reviews it against the request. Major issues are sent back to the generator,
+which revises in the same conversation, for up to HARNESS_CRITIC_ROUNDS revisions. The
+best-reviewed draft wins (approved first, then score), so a worse revision never replaces
+a better draft. The critic is advisory: if it fails, the current draft is kept.
 """
 import json
 from dataclasses import dataclass
 
 from django.conf import settings
 
+from . import critic
 from .llm import LLMConfigError, get_llm
 from .render_mermaid import to_mermaid
 from .sanitize import InvalidDiagram
@@ -49,13 +56,19 @@ class Result:
     code: str
     repairs: int
     model: dict | None = None
+    review: dict | None = None  # critic verdict for this draft, see critic.Review
 
 
-def get_client():
+def get_client(model: str | None = None):
     try:
-        return get_llm()
+        return get_llm(model)
     except LLMConfigError as e:
         raise HarnessError(str(e))
+
+
+def get_critic_client():
+    """The critic may use a different (e.g. stronger or cheaper) model: LLM_CRITIC_MODEL."""
+    return get_client(settings.LLM_CRITIC_MODEL or None)
 
 
 def _complete(client, messages) -> str:
@@ -91,14 +104,16 @@ def _previous_turn(code: str, model: dict | None) -> str:
     return json.dumps({'title': '', 'explanation': '', 'code': code})
 
 
-def _run(client, messages: list, max_repairs: int, repairs_used: int = 0) -> Result:
+def _draft(client, messages: list, max_repairs: int, repairs_used: int = 0):
+    """One generator turn with validate-and-repair. Returns the result and the conversation
+    including the accepted reply, so the critic's feedback can continue it."""
     last_error = None
     for attempt in range(max_repairs + 1):
         raw = _complete(client, messages)
         try:
             result = _parse(raw)
             result.repairs = repairs_used + attempt
-            return result
+            return result, messages + [{'role': 'assistant', 'content': raw}]
         except InvalidDiagram as e:
             last_error = e
             messages = messages + [
@@ -108,16 +123,56 @@ def _run(client, messages: list, max_repairs: int, repairs_used: int = 0) -> Res
     raise HarnessError(f'Could not produce a valid diagram: {last_error}')
 
 
+def _run(client, messages: list, max_repairs: int, repairs_used: int = 0) -> Result:
+    return _draft(client, messages, max_repairs, repairs_used)[0]
+
+
+def _rank(result: Result):
+    return (result.review['approved'], result.review['score'])
+
+
+def _critique(client, critic_client, request: str, previous_model: dict | None,
+              result: Result, messages: list) -> Result:
+    """Critic reviews, generator revises; returns the best-reviewed draft."""
+    max_revisions = settings.HARNESS_CRITIC_ROUNDS
+    best, revisions = None, 0
+    while True:
+        try:
+            rev = critic.review(critic_client, request, result.model, previous_model, _extract_json)
+        except Exception:  # advisory: bad JSON, API error... keep what we have
+            break
+        result.review = rev.as_dict()
+        if best is None or _rank(result) >= _rank(best):
+            best = result
+        if rev.approved or revisions >= max_revisions:
+            break
+        try:
+            result, messages = _draft(client, messages + [
+                {'role': 'user', 'content': critic.feedback(rev)}], settings.HARNESS_MAX_REPAIRS)
+        except HarnessError:  # the revision never validated; keep the best draft
+            break
+        revisions += 1
+    best = best or result
+    if best.review is not None:
+        best.review['revisions'] = revisions
+    return best
+
+
 def generate(prompt: str, previous_code: str | None = None,
-             previous_model: dict | None = None, client=None) -> Result:
+             previous_model: dict | None = None, client=None, critic_client=None) -> Result:
     client = client or get_client()
+    request = prompt
     if previous_model:
         prompt = f'Current system model:\n{json.dumps(previous_model)}\n\nModify it as follows: {prompt}'
     elif previous_code:
         # versions made before the system model existed: converted while editing
         prompt = f'Current diagram:\n{previous_code}\n\nModify it as follows: {prompt}'
     messages = [{'role': 'system', 'content': SYSTEM_PROMPT}, {'role': 'user', 'content': prompt}]
-    return _run(client, messages, settings.HARNESS_MAX_REPAIRS)
+    result, messages = _draft(client, messages, settings.HARNESS_MAX_REPAIRS)
+    if settings.HARNESS_CRITIC_ROUNDS < 0:  # -1 disables the critic entirely
+        return result
+    critic_client = critic_client or (get_critic_client() if settings.LLM_CRITIC_MODEL else client)
+    return _critique(client, critic_client, request, previous_model, result, messages)
 
 
 def repair(prompt: str, code: str, error: str, model: dict | None = None, client=None) -> Result:

@@ -24,6 +24,7 @@ class DiagramVersion(models.Model):
     model = models.JSONField(null=True, blank=True)  # structured system model (Mermaid format)
     explanation = models.TextField(blank=True)
     repairs = models.PositiveIntegerField(default=0)
+    review = models.JSONField(null=True, blank=True)  # critic agent verdict (score, issues)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

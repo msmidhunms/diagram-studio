@@ -53,13 +53,13 @@ class AnthropicChat:
         return ''.join(b.text for b in resp.content if b.type == 'text')
 
 
-def get_llm():
+def get_llm(model_override: str | None = None):
     provider = settings.LLM_PROVIDER.lower()
     if provider not in PRESETS:
         raise LLMConfigError(f'Unknown LLM_PROVIDER "{provider}". Options: {", ".join(PRESETS)}')
     adapter, base_url, model, needs_key = PRESETS[provider]
     base_url = settings.LLM_BASE_URL or base_url
-    model = settings.LLM_MODEL or model
+    model = model_override or settings.LLM_MODEL or model
     if not model:
         raise LLMConfigError('LLM_MODEL is required for this provider')
     if provider == 'openai_compatible' and not base_url:

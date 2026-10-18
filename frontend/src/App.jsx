@@ -6,6 +6,31 @@ import { MODEL_EXPORTS } from './exporters'
 
 const MAX_AUTO_REPAIRS = 2
 
+function Review({ review }) {
+  if (!review) return null
+  const revised = review.revisions ? ` · revised ${review.revisions}×` : ''
+  const verdict = review.approved ? 'approved' : 'has open issues'
+  return (
+    <details className="review">
+      <summary>
+        Critic: <strong className={review.approved ? 'added' : 'changed'}>{review.score}/10, {verdict}</strong>{revised}
+        {review.summary && <span className="muted"> — {review.summary}</span>}
+      </summary>
+      {review.issues.length ? (
+        <ul>
+          {review.issues.map((i, n) => (
+            <li key={n} className={i.severity}>
+              <span className="severity">{i.severity}</span>
+              {i.target && <code>{i.target}</code>} {i.problem}
+              {i.fix && <span className="muted"> → {i.fix}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : <p className="muted">No issues found.</p>}
+    </details>
+  )
+}
+
 function Changes({ changes }) {
   if (!changes) return null
   const parts = [
@@ -90,7 +115,7 @@ export default function App() {
   const submit = (e) => {
     e.preventDefault()
     if (!prompt.trim() || busy) return
-    run('Generating…', () => api.generate({ prompt, format, diagram_id: current?.id }))
+    run('Generating and reviewing…', () => api.generate({ prompt, format, diagram_id: current?.id }))
     setPrompt('')
   }
 
@@ -194,6 +219,7 @@ export default function App() {
               )}
             </div>
             <p className="explain">{version.explanation}</p>
+            <Review review={version.review} />
             <History
               versions={current.versions}
               selected={versionIdx}
