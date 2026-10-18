@@ -2,9 +2,9 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
-from . import harness
+from . import critic, harness
 from .render_mermaid import to_mermaid
 from .sanitize import InvalidDiagram, check_mermaid, sanitize_svg
 from .sysmodel import diff_models, validate_model
@@ -52,6 +52,7 @@ class SanitizeTests(TestCase):
             check_mermaid('Here is your diagram: A-->B')
 
 
+@override_settings(HARNESS_CRITIC_ROUNDS=-1)
 class HarnessTests(TestCase):
     def test_json_wrapped_in_prose_is_accepted(self):
         client = fake_client('Sure! ' + mreply('a', 'b', edges=[('a', 'b')]) + ' Hope it helps.')
@@ -156,6 +157,7 @@ class SystemModelTests(TestCase):
         self.assertIsNone(diff_models(None, new))
 
 
+@override_settings(HARNESS_CRITIC_ROUNDS=-1)
 class ApiTests(TestCase):
     def post(self, url, body):
         return self.client.post(url, json.dumps(body), content_type='application/json')
@@ -199,6 +201,106 @@ class ApiTests(TestCase):
     def test_missing_api_key_is_502(self):
         with self.settings(LLM_PROVIDER='openai', LLM_API_KEY=''):
             self.assertEqual(self.post('/api/diagrams/generate/', {'prompt': 'x'}).status_code, 502)
+
+
+def creply(score, *issues, summary='s'):
+    return json.dumps({'score': score, 'approved': True, 'summary': summary,
+                       'issues': [{'severity': s, 'target': t, 'problem': p, 'fix': 'f'} for s, t, p in issues]})
+
+
+@override_settings(HARNESS_CRITIC_ROUNDS=1, LLM_CRITIC_MODEL='')
+class CriticTests(TestCase):
+    def test_lint_finds_structural_issues(self):
+        m = validate_model({'groups': [{'id': 'empty', 'label': 'Empty'}],
+                            'nodes': [{'id': 'a'}, {'id': 'b'}, {'id': 'lonely'}],
+                            'edges': [{'from': 'a', 'to': 'b'}, {'from': 'a', 'to': 'b'}, {'from': 'a', 'to': 'a'}]})
+        problems = [i['problem'] for i in critic.lint(m)]
+        self.assertEqual(len(problems), 4)
+        self.assertTrue(any('no connections' in p for p in problems))
+        self.assertTrue(any('Duplicate' in p for p in problems))
+        self.assertTrue(any('Self-loop' in p for p in problems))
+        self.assertTrue(any('empty' in p for p in problems))
+        self.assertEqual(critic.lint(validate_model(model('a', 'b', edges=[('a', 'b')]))), [])
+
+    def test_approval_follows_major_issues_not_the_flag(self):
+        rev = critic.parse_review({'score': 99, 'approved': True,
+                                   'issues': [{'problem': 'x'}, {'severity': 'major', 'problem': 'no DB'}, 'junk']})
+        self.assertFalse(rev.approved)
+        self.assertEqual(rev.score, 10)
+        self.assertEqual([i['severity'] for i in rev.issues], ['major', 'minor'])
+
+    def test_approved_draft_is_not_revised(self):
+        client = fake_client(mreply('a', 'b', edges=[('a', 'b')]), creply(9))
+        r = harness.generate('x', client=client)
+        self.assertEqual(len(client.calls), 2)
+        self.assertEqual(r.review['score'], 9)
+        self.assertTrue(r.review['approved'])
+        self.assertEqual(r.review['revisions'], 0)
+        # the critic sees the request and the model, not the generator's conversation
+        self.assertEqual(client.calls[1][0]['content'], critic.CRITIC_PROMPT)
+        self.assertIn('User request:\nx', client.calls[1][1]['content'])
+
+    def test_major_issue_triggers_revision(self):
+        client = fake_client(mreply('a', 'b', edges=[('a', 'b')]),
+                             creply(4, ('major', 'a', 'missing database')),
+                             mreply('a', 'b', 'db', edges=[('a', 'b'), ('b', 'db')]), creply(8))
+        r = harness.generate('x', client=client)
+        self.assertEqual([n['id'] for n in r.model['nodes']], ['a', 'b', 'db'])
+        self.assertEqual(r.review, {'score': 8, 'approved': True, 'summary': 's', 'issues': [], 'revisions': 1})
+        feedback = client.calls[2][-1]['content']
+        self.assertIn('[major] a: missing database -> f', feedback)
+        self.assertEqual(client.calls[2][-2]['role'], 'assistant')  # generator continues its own conversation
+
+    def test_worse_revision_does_not_replace_better_draft(self):
+        client = fake_client(mreply('a', 'b', edges=[('a', 'b')]), creply(6, ('major', '', 'p')),
+                             mreply('z'), creply(3, ('major', '', 'q')))
+        r = harness.generate('x', client=client)
+        self.assertEqual([n['id'] for n in r.model['nodes']], ['a', 'b'])
+        self.assertEqual(r.review['score'], 6)
+        self.assertEqual(r.review['revisions'], 1)
+
+    def test_rounds_are_bounded(self):
+        with self.settings(HARNESS_CRITIC_ROUNDS=0):
+            client = fake_client(mreply('a'), creply(2, ('major', '', 'bad')))
+            r = harness.generate('x', client=client)
+        self.assertEqual(len(client.calls), 2)
+        self.assertFalse(r.review['approved'])
+
+    def test_critic_failure_keeps_draft(self):
+        client = fake_client(mreply('a', 'b', edges=[('a', 'b')]), 'not json at all')
+        r = harness.generate('x', client=client)
+        self.assertEqual(len(r.model['nodes']), 2)
+        self.assertIsNone(r.review)
+
+    def test_invalid_revision_keeps_reviewed_draft(self):
+        client = fake_client(mreply('a'), creply(5, ('major', '', 'p')), 'bad', 'bad', 'bad')
+        r = harness.generate('x', client=client)
+        self.assertEqual(r.review['score'], 5)
+
+    def test_edit_review_includes_previous_model(self):
+        client = fake_client(mreply('a', 'b', edges=[('a', 'b')]), creply(9))
+        harness.generate('add b', 'flowchart LR', model('a'), client=client)
+        self.assertIn('Model before this edit', client.calls[1][1]['content'])
+        self.assertIn('User request:\nadd b', client.calls[1][1]['content'])
+
+    def test_lint_issues_reach_the_critic_and_review(self):
+        client = fake_client(mreply('a', 'b'), creply(7))
+        r = harness.generate('x', client=client)
+        self.assertIn('Automated checks already found', client.calls[1][1]['content'])
+        self.assertEqual(len(r.review['issues']), 2)  # both nodes unconnected
+
+    def test_review_is_stored_and_returned(self):
+        with patch('studio.harness.get_client', return_value=fake_client(
+                mreply('a', 'b', edges=[('a', 'b')]), creply(9, ('minor', 'a', 'rename')))):
+            d = self.client.post('/api/diagrams/generate/', json.dumps({'prompt': 'x'}),
+                                 content_type='application/json').json()
+        self.assertEqual(d['versions'][0]['review']['score'], 9)
+        self.assertEqual(d['versions'][0]['review']['issues'][0]['problem'], 'rename')
+
+    def test_separate_critic_model(self):
+        with self.settings(LLM_PROVIDER='anthropic', LLM_API_KEY='k', LLM_MODEL='gen', LLM_CRITIC_MODEL='crit'):
+            self.assertEqual(harness.get_critic_client().model, 'crit')
+            self.assertEqual(harness.get_client().model, 'gen')
 
 
 class LLMConfigTests(TestCase):

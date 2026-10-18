@@ -46,6 +46,7 @@ Larger models give much better diagrams than small local ones.
 
    Both views come from the same model, so switching views needs no LLM call, and each version reports which components changed.
 3. Invalid output is fed back to the model for up to `HARNESS_MAX_REPAIRS` (default 2) retries.
+   **Generator + critic.** Each valid draft is then reviewed by a separate critic agent (`critic.py`): deterministic checks (orphan nodes, self-loops, duplicate edges, empty groups, size) plus an LLM review of completeness, edge direction and style, grouping/trust zones, readability and, for edits, whether only the requested change was made. Major issues go back to the generator for up to `HARNESS_CRITIC_ROUNDS` (default 1) revisions; the best-reviewed draft is kept. The score and issues are stored on the version and shown in the UI. Set `HARNESS_CRITIC_ROUNDS=0` to review without revising, `-1` to turn the critic off, and `LLM_CRITIC_MODEL` to review with a different model from the same provider.
 4. Mermaid is parsed by the browser's renderer; if it fails, the UI calls `POST /api/diagrams/<id>/repair/` with the error and the model fixes it (max 2 auto-repairs).
 5. Every result is stored as a new version of the diagram, with its prompt and system model.
 

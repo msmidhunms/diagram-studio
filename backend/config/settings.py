@@ -138,6 +138,10 @@ LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
 LLM_BASE_URL = os.environ.get('LLM_BASE_URL', '')
 LLM_MODEL = os.environ.get('LLM_MODEL', '')
 HARNESS_MAX_REPAIRS = int(os.environ.get('HARNESS_MAX_REPAIRS', '2'))
+# Critic agent: max generator revisions after review (0 = review only, -1 = no critic)
+HARNESS_CRITIC_ROUNDS = int(os.environ.get('HARNESS_CRITIC_ROUNDS', '1'))
+# Optional separate model for the critic (same provider); empty = same as LLM_MODEL
+LLM_CRITIC_MODEL = os.environ.get('LLM_CRITIC_MODEL', '')
 
 # Cloud icon artwork is fetched server-side (third-party CDNs don't reliably allow
 # browser CORS) and cached here, so icons keep working offline after first use.

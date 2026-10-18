@@ -14,7 +14,7 @@ MAX_PROMPT = 4000
 def _version(v, prev=None):
     return {'number': v.number, 'prompt': v.prompt, 'code': v.code, 'model': v.model,
             'changes': diff_models(prev.model, v.model) if prev else None,
-            'explanation': v.explanation, 'repairs': v.repairs,
+            'explanation': v.explanation, 'repairs': v.repairs, 'review': v.review,
             'created_at': v.created_at.isoformat()}
 
 
@@ -40,7 +40,8 @@ def _save_version(diagram, prompt, result):
     last = diagram.latest()
     DiagramVersion.objects.create(
         diagram=diagram, number=(last.number + 1) if last else 1, prompt=prompt,
-        code=result.code, model=result.model, explanation=result.explanation, repairs=result.repairs)
+        code=result.code, model=result.model, explanation=result.explanation, repairs=result.repairs,
+        review=result.review)
     if result.title and not diagram.title:
         diagram.title = result.title
     diagram.save()
