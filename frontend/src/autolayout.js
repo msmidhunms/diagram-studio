@@ -9,7 +9,7 @@ const TECH_PX = 6.2 // at 11px
 const WRAP = 24 // characters per label line
 const LINE_H = 16
 
-const NODE_COLORS = {
+export const NODE_COLORS = {
   database: ['#e8f1fb', '#3b6ea5'],
   storage: ['#e8f1fb', '#3b6ea5'],
   cache: ['#fdf1e3', '#c07a2c'],
@@ -20,15 +20,15 @@ const NODE_COLORS = {
   gateway: ['#fff8db', '#a68a1f'],
   function: ['#eef7f7', '#2f8585'],
 }
-const DEFAULT_COLORS = ['#ffffff', '#57606a']
-const GROUP_STYLES = {
+export const DEFAULT_COLORS = ['#ffffff', '#57606a']
+export const GROUP_STYLES = {
   tier: { fill: '#f6f8fa', stroke: '#d0d7de', text: '#57606a' },
   trust_zone: { fill: '#fff7f6', stroke: '#c0392b', text: '#c0392b', dash: '6 4', width: 2 },
   network: { fill: 'none', stroke: '#8c959f', text: '#57606a', dash: '3 3' },
   cloud: { fill: '#f3f8ff', stroke: '#5b8bd0', text: '#3b6ea5' },
   other: { fill: '#f6f8fa', stroke: '#d0d7de', text: '#57606a' },
 }
-const EDGE_STYLES = {
+export const EDGE_STYLES = {
   sync: { stroke: '#57606a', width: 1.5 },
   async: { stroke: '#57606a', width: 1.5, dash: '6 4' },
   data: { stroke: '#3b6ea5', width: 2.5 },

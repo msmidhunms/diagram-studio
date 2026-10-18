@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from './api'
 import Preview from './Preview'
 import { downloadPng, downloadSvg, downloadText } from './exportFile'
+import { MODEL_EXPORTS } from './exporters'
 
 const MAX_AUTO_REPAIRS = 2
 
@@ -26,6 +27,31 @@ function Changes({ changes }) {
         </span>
       )}
     </p>
+  )
+}
+
+// Every version with the prompt that produced it; click to view that version.
+function History({ versions, selected, onSelect }) {
+  return (
+    <details className="history" open>
+      <summary>History ({versions.length})</summary>
+      <ol>
+        {versions.map((v, i) => {
+          const auto = v.prompt.startsWith('(auto-repair)')
+          return (
+            <li key={v.number}>
+              <button className={i === selected ? 'active' : ''} onClick={() => onSelect(i)} aria-current={i === selected}>
+                <span className="v">v{v.number}</span>
+                <span className={auto ? 'prompt muted' : 'prompt'}>
+                  {auto ? `Auto-fix: ${v.prompt.replace('(auto-repair) ', '')}` : v.prompt}
+                </span>
+                <time dateTime={v.created_at}>{new Date(v.created_at).toLocaleString()}</time>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </details>
   )
 }
 
@@ -92,6 +118,17 @@ export default function App() {
   const hasMermaid = version && (version.model || current.format === 'mermaid')
   const isLatest = current && versionIdx === current.versions.length - 1
 
+  const exportAs = async (id) => {
+    if (id === 'mermaid') return downloadText(version.code, current.title, 'mmd', 'text/plain')
+    const f = MODEL_EXPORTS.find((x) => x.id === id)
+    try {
+      const text = await f.build(version.model, current.title)
+      downloadText(text, f.suffix ? `${current.title} ${f.suffix}` : current.title, f.ext, f.mime)
+    } catch (e) {
+      setError(`Export failed: ${e.message}`)
+    }
+  }
+
   const onRenderError = useCallback((msg) => {
     if (!isLatest || busy || repairs.current >= MAX_AUTO_REPAIRS) return
     repairs.current += 1
@@ -148,16 +185,20 @@ export default function App() {
               <span className="muted">Export:</span>
               <button disabled={!svgForExport} onClick={() => downloadSvg(svgForExport, current.title)}>SVG</button>
               <button disabled={!svgForExport} onClick={() => downloadPng(svgForExport, current.title)}>PNG</button>
-              {hasMermaid && (
-                <button onClick={() => downloadText(version.code, current.title, 'mmd', 'text/plain')}>Mermaid (.mmd)</button>
-              )}
-              {version.model && (
-                <button onClick={() => downloadText(JSON.stringify(version.model, null, 2), current.title, 'json', 'application/json')}>
-                  System model (.json)
-                </button>
+              {(hasMermaid || version.model) && (
+                <select value="" onChange={(e) => exportAs(e.target.value)} aria-label="Export as another format">
+                  <option value="" disabled>More formats…</option>
+                  {hasMermaid && <option value="mermaid">Mermaid (.mmd)</option>}
+                  {version.model && MODEL_EXPORTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
               )}
             </div>
             <p className="explain">{version.explanation}</p>
+            <History
+              versions={current.versions}
+              selected={versionIdx}
+              onSelect={(i) => { setRenderedSvg(null); setVersionIdx(i) }}
+            />
             <details>
               <summary>Source</summary>
               <pre>{version.code}</pre>

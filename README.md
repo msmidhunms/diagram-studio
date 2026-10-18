@@ -47,7 +47,9 @@ Larger models give much better diagrams than small local ones.
    Both views come from the same model, so switching views needs no LLM call, and each version reports which components changed.
 3. Invalid output is fed back to the model for up to `HARNESS_MAX_REPAIRS` (default 2) retries.
 4. Mermaid is parsed by the browser's renderer; if it fails, the UI calls `POST /api/diagrams/<id>/repair/` with the error and the model fixes it (max 2 auto-repairs).
-5. Every result is stored as a new version of the diagram (with its system model, exportable as JSON).
+5. Every result is stored as a new version of the diagram, with its prompt and system model.
+
+**Exports** (all from the system model, no LLM call): SVG, PNG, Mermaid, Draw.io, Excalidraw, PlantUML, C4 container (C4-PlantUML), D2 and the raw model JSON. Draw.io and Excalidraw files use the same ELK layout as the Auto-layout view (`frontend/src/exporters/`).
 
 
 Note: the API has no authentication and CSRF is disabled for it — it is meant for local use. Add auth before exposing it.

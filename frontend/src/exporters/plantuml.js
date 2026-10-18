@@ -1,0 +1,53 @@
+// System model -> PlantUML component diagram.
+import { gid, nid, walk } from './common'
+
+const ELEMENT = {
+  service: 'component',
+  database: 'database',
+  storage: 'storage',
+  cache: 'collections',
+  queue: 'queue',
+  client: 'rectangle',
+  user: 'actor',
+  external: 'cloud',
+  gateway: 'hexagon',
+  function: 'agent',
+  other: 'rectangle',
+}
+const GROUP = {
+  tier: 'rectangle "%s" as %s',
+  trust_zone: 'rectangle "%s" as %s #line.dashed;line:C0392B;text:C0392B',
+  network: 'rectangle "%s" as %s #line.dashed',
+  cloud: 'cloud "%s" as %s',
+  other: 'rectangle "%s" as %s',
+}
+const ARROW = { sync: '-->', async: '..>', data: '-[#3B6EA5,bold]->' }
+
+// PlantUML strings can't escape double quotes; stereotypes can't contain << >>
+const str = (s) => String(s).replace(/"/g, "'")
+const stereo = (s) => String(s).replace(/[<>]/g, '')
+
+export function toPlantUml(model, title = '') {
+  const out = ['@startuml']
+  if (title) out.push(`title ${str(title)}`)
+  out.push(model.direction === 'TD' ? 'top to bottom direction' : 'left to right direction',
+    'skinparam shadowing false', 'skinparam componentStyle rectangle', '')
+  walk(model, {
+    onNode(n, depth) {
+      const tech = n.tech ? ` <<${stereo(n.tech)}>>` : ''
+      out.push(`${'  '.repeat(depth)}${ELEMENT[n.type] || 'rectangle'} "${str(n.label)}" as ${nid(n.id)}${tech}`)
+    },
+    onGroup(g, depth, inner) {
+      const pad = '  '.repeat(depth)
+      out.push(pad + (GROUP[g.kind] || GROUP.other).replace('%s', str(g.label)).replace('%s', gid(g.id)) + ' {')
+      inner()
+      out.push(`${pad}}`)
+    },
+  })
+  out.push('')
+  for (const e of model.edges) {
+    out.push(`${nid(e.from)} ${ARROW[e.style] || ARROW.sync} ${nid(e.to)}${e.label ? ` : ${str(e.label)}` : ''}`)
+  }
+  out.push('@enduml')
+  return out.join('\n') + '\n'
+}
