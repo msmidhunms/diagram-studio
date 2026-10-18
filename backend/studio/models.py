@@ -21,6 +21,7 @@ class DiagramVersion(models.Model):
     number = models.PositiveIntegerField()
     prompt = models.TextField()
     code = models.TextField()
+    model = models.JSONField(null=True, blank=True)  # structured system model (Mermaid format)
     explanation = models.TextField(blank=True)
     repairs = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

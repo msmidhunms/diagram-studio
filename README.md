@@ -39,10 +39,13 @@ Larger models give much better diagrams than small local ones.
 
 ## How the harness works
 
-1. `POST /api/diagrams/generate/` sends the prompt (plus the current diagram when iterating) to the configured model (JSON mode where the provider supports it): `{title, explanation, code}`.
-2. Output is validated: SVG is parsed and sanitized (scripts, event handlers, external refs, DOCTYPE removed); Mermaid gets a structural check.
+1. `POST /api/diagrams/generate/` sends the prompt (plus the current diagram when iterating) to the configured model (JSON mode where the provider supports it).
+   - **Mermaid (plan, then render):** the model returns `{title, explanation, model}`, a structured system model of groups/trust zones, typed nodes and styled edges (`backend/studio/sysmodel.py`). It is validated and rendered to Mermaid in Python (`render_mermaid.py`), so the layout is consistent and each version reports which components changed.
+   - **SVG:** the model returns `{title, explanation, code}` with a hand-drawn SVG.
+2. Output is validated: the system model is checked for duplicate ids, dangling edges and group cycles; SVG is parsed and sanitized (scripts, event handlers, external refs, DOCTYPE removed).
 3. Invalid output is fed back to the model for up to `HARNESS_MAX_REPAIRS` (default 2) retries.
 4. Mermaid is parsed by the browser's renderer; if it fails, the UI calls `POST /api/diagrams/<id>/repair/` with the error and the model fixes it (max 2 auto-repairs).
-5. Every result is stored as a new version of the diagram.
+5. Every result is stored as a new version of the diagram (with its system model, exportable as JSON).
+
 
 Note: the API has no authentication and CSRF is disabled for it — it is meant for local use. Add auth before exposing it.

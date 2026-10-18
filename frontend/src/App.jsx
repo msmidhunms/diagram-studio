@@ -5,6 +5,30 @@ import { downloadPng, downloadSvg, downloadText } from './exportFile'
 
 const MAX_AUTO_REPAIRS = 2
 
+function Changes({ changes }) {
+  if (!changes) return null
+  const parts = [
+    ['+', changes.added_nodes, 'added'],
+    ['−', changes.removed_nodes, 'removed'],
+    ['~', changes.changed_nodes, 'changed'],
+  ].filter(([, list]) => list.length)
+  const edges = changes.added_edges.length + changes.removed_edges.length
+  if (!parts.length && !edges) return <p className="changes muted">No component changes from the previous version.</p>
+  return (
+    <p className="changes">
+      {parts.map(([sign, list, cls]) => (
+        <span key={cls} className={cls}>{sign} {list.join(', ')}</span>
+      ))}
+      {edges > 0 && (
+        <span className="muted">
+          {changes.added_edges.length} connection{changes.added_edges.length === 1 ? '' : 's'} added,{' '}
+          {changes.removed_edges.length} removed
+        </span>
+      )}
+    </p>
+  )
+}
+
 export default function App() {
   const [diagrams, setDiagrams] = useState([])
   const [current, setCurrent] = useState(null)
@@ -107,6 +131,7 @@ export default function App() {
               </select>
               </div>
             </header>
+            <Changes changes={version.changes} />
             <Preview format={current.format} code={version.code} onRenderError={onRenderError} onSvg={setRenderedSvg} />
             <div className="actions export">
               <span className="muted">Export:</span>
@@ -115,12 +140,23 @@ export default function App() {
               {current.format === 'mermaid' && (
                 <button onClick={() => downloadText(version.code, current.title, 'mmd', 'text/plain')}>Mermaid (.mmd)</button>
               )}
+              {version.model && (
+                <button onClick={() => downloadText(JSON.stringify(version.model, null, 2), current.title, 'json', 'application/json')}>
+                  System model (.json)
+                </button>
+              )}
             </div>
             <p className="explain">{version.explanation}</p>
             <details>
               <summary>Source</summary>
               <pre>{version.code}</pre>
             </details>
+            {version.model && (
+              <details>
+                <summary>System model</summary>
+                <pre>{JSON.stringify(version.model, null, 2)}</pre>
+              </details>
+            )}
             {!isLatest && <p className="muted">Viewing an older version — edits apply to the latest.</p>}
           </>
         ) : (

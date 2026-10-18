@@ -6,12 +6,14 @@ from django.views.decorators.http import require_http_methods
 
 from . import harness
 from .models import Diagram, DiagramVersion
+from .sysmodel import diff_models
 
 MAX_PROMPT = 4000
 
 
-def _version(v):
-    return {'number': v.number, 'prompt': v.prompt, 'code': v.code,
+def _version(v, prev=None):
+    return {'number': v.number, 'prompt': v.prompt, 'code': v.code, 'model': v.model,
+            'changes': diff_models(prev.model, v.model) if prev else None,
             'explanation': v.explanation, 'repairs': v.repairs,
             'created_at': v.created_at.isoformat()}
 
@@ -19,7 +21,8 @@ def _version(v):
 def _diagram(d, with_versions=True):
     out = {'id': d.id, 'title': d.title, 'format': d.format, 'updated_at': d.updated_at.isoformat()}
     if with_versions:
-        out['versions'] = [_version(v) for v in d.versions.all()]
+        versions = list(d.versions.all())
+        out['versions'] = [_version(v, versions[i - 1] if i else None) for i, v in enumerate(versions)]
     return out
 
 
@@ -37,7 +40,7 @@ def _save_version(diagram, prompt, result):
     last = diagram.latest()
     DiagramVersion.objects.create(
         diagram=diagram, number=(last.number + 1) if last else 1, prompt=prompt,
-        code=result.code, explanation=result.explanation, repairs=result.repairs)
+        code=result.code, model=result.model, explanation=result.explanation, repairs=result.repairs)
     if result.title and not diagram.title:
         diagram.title = result.title
     diagram.save()
@@ -101,8 +104,9 @@ def generate(request):
             except (Diagram.DoesNotExist, ValueError, TypeError):
                 raise ValueError('Unknown diagram_id')
             fmt = diagram.format
-            previous = diagram.latest().code
-        result = harness.generate(prompt, fmt, previous)
+            previous = diagram.latest()
+        result = harness.generate(prompt, fmt, previous.code if previous else None,
+                                  previous.model if previous else None)
         diagram = diagram or Diagram.objects.create(format=fmt)
         return JsonResponse(_diagram(_save_version(diagram, prompt, result)))
     return _run(go)
@@ -121,6 +125,6 @@ def repair(request, pk):
         if not error:
             raise ValueError('error is required')
         latest = diagram.latest()
-        result = harness.repair(latest.prompt, diagram.format, latest.code, error)
+        result = harness.repair(latest.prompt, diagram.format, latest.code, error, latest.model)
         return JsonResponse(_diagram(_save_version(diagram, f'(auto-repair) {error[:120]}', result)))
     return _run(go)

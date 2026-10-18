@@ -16,6 +16,10 @@ h2 { margin: 0; font-size: 18px; }
 .empty { flex: 1; display: grid; place-content: center; text-align: center; }
 .muted { color: #7a828e; font-size: 13px; }
 .explain { margin: 0 0 8px; }
+.changes { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 8px; font-size: 13px; }
+.changes .added { color: #2e7d32; }
+.changes .removed { color: #b3261e; }
+.changes .changed { color: #a15c00; }
 .error { color: #b3261e; white-space: pre-wrap; font-size: 13px; }
 pre { background: #f4f5f7; padding: 12px; border-radius: 6px; overflow: auto; font-size: 12px; }
 form { display: flex; gap: 8px; margin-top: 12px; position: sticky; bottom: 0; background: #fff; padding: 8px 0; }
