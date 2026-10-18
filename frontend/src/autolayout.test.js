@@ -23,7 +23,7 @@ describe('autolayout', () => {
 
   it('draws all nodes, groups and edges into a standalone SVG', async () => {
     const svg = await modelToSvg(ecommerce)
-    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 \d+ \d+"/)
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" xmlns:xlink="[^"]+" viewBox="0 0 \d+ \d+"/)
     for (const n of ecommerce.nodes) expect(svg).toContain(n.label.replace('&', '&#38;'))
     for (const g of ecommerce.groups) expect(svg).toContain(g.label)
     expect(svg.match(/marker-end=/g)).toHaveLength(ecommerce.edges.length)

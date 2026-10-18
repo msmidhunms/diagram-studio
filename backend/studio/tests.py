@@ -98,8 +98,24 @@ class SystemModelTests(TestCase):
             'edges': [{'from': 'api gw', 'to': 'api gw', 'style': 'teleport'}]})
         self.assertEqual(m['direction'], 'LR')
         self.assertEqual(m['nodes'][0], {'id': 'api_gw', 'label': 'API Gateway', 'type': 'other',
-                                         'group': None, 'tech': None})
+                                         'group': None, 'tech': None, 'icon': None})
         self.assertEqual(m['edges'][0]['style'], 'sync')
+
+    def test_icons_are_checked_against_the_catalogue(self):
+        m = validate_model({'nodes': [{'id': 'f', 'icon': 'AWS:Lambda'}, {'id': 'g', 'icon': 'aws:teleporter'},
+                                      {'id': 'h', 'icon': 'azure:cosmos db'}, {'id': 'i', 'icon': 42}]})
+        self.assertEqual([n['icon'] for n in m['nodes']], ['aws:lambda', None, 'azure:cosmos_db', None])
+
+    def test_icon_change_shows_in_diff(self):
+        old = validate_model({'nodes': [{'id': 'f', 'label': 'Fn'}]})
+        new = validate_model({'nodes': [{'id': 'f', 'label': 'Fn', 'icon': 'gcp:cloud_run'}]})
+        self.assertEqual(diff_models(old, new)['changed_nodes'], ['Fn'])
+
+    def test_prompt_lists_every_icon(self):
+        from .sysmodel import ICONS
+        for key in ICONS:
+            provider, service = key.split(':')
+            self.assertIn(service, harness.SYSTEM_PROMPT)
 
     def test_rejects_broken_references(self):
         bad = [
@@ -199,3 +215,42 @@ class LLMConfigTests(TestCase):
         with self.settings(LLM_PROVIDER='openai_compatible', LLM_BASE_URL='http://x/v1', LLM_MODEL=''), \
                 self.assertRaises(LLMConfigError):
             get_llm()
+
+
+class IconProxyTests(TestCase):
+    SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><script>x()</script><rect width="8" height="8"/></svg>'
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.override = self.settings(ICON_CACHE_DIR=__import__('pathlib').Path(self.tmp.name))
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+        self.tmp.cleanup()
+
+    def test_serves_sanitized_catalogue_icon_and_caches_it(self):
+        with patch('studio.icons._download', return_value=self.SVG) as dl:
+            r = self.client.get('/api/icons/aws:lambda.svg')
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r['Content-Type'], 'image/svg+xml')
+            self.assertNotIn(b'script', r.content)
+            self.client.get('/api/icons/aws:lambda.svg')
+        dl.assert_called_once()  # second request served from the disk cache
+        self.assertIn('icons.terrastruct.com', dl.call_args[0][0])
+
+    def test_only_catalogue_keys_are_fetched(self):
+        with patch('studio.icons._download') as dl:
+            self.assertEqual(self.client.get('/api/icons/aws:nope.svg').status_code, 404)
+            self.assertEqual(self.client.get('/api/icons/https:evil.example.svg').status_code, 404)
+            self.assertEqual(self.client.get('/api/icons/gcp:bigquery.svg').status_code, 502)  # no artwork
+        dl.assert_not_called()
+
+    def test_network_or_content_failures_are_502(self):
+        from studio.icons import IconUnavailable
+        for err in (OSError('offline'), IconUnavailable('not an SVG')):
+            with patch('studio.icons._download', side_effect=err):
+                self.assertEqual(self.client.get('/api/icons/azure:functions.svg').status_code, 502)
+        with patch('studio.icons._download', return_value=b'<html>nope</html>'):
+            self.assertEqual(self.client.get('/api/icons/azure:functions.svg').status_code, 502)

@@ -7,4 +7,5 @@ urlpatterns = [
     path('diagrams/generate/', views.generate),
     path('diagrams/<int:pk>/', views.diagram_detail),
     path('diagrams/<int:pk>/repair/', views.repair),
+    path('icons/<str:key>.svg', views.icon),
 ]

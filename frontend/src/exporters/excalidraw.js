@@ -2,6 +2,7 @@
 // Excalidraw only has rectangles, ellipses and diamonds, so node types map to the closest
 // shape plus the shared colour palette.
 import { DEFAULT_COLORS, EDGE_STYLES, GROUP_STYLES, NODE_COLORS, layoutModel } from '../autolayout'
+import { ICON_SLOT, fetchIcon, iconInfo, loadIcons } from '../icons'
 import { gid, hash, nid } from './common'
 
 const FONT = 2 // Excalidraw "Normal" (Helvetica)
@@ -28,8 +29,9 @@ function text(id, str, x, y, width, size, extra = {}) {
   })
 }
 
-export async function toExcalidraw(model) {
-  const { shapes, laid } = await layoutModel(model)
+export async function toExcalidraw(model, _title, { loadIcon = fetchIcon } = {}) {
+  const [{ shapes, laid }, icons] = await Promise.all([layoutModel(model), loadIcons(model, loadIcon)])
+  const files = {}
   const elements = []
   const byId = new Map()
   const add = (el) => { elements.push(el); byId.set(el.id, el); return el }
@@ -55,8 +57,17 @@ export async function toExcalidraw(model) {
       strokeColor: stroke, backgroundColor: fill, roundness: round ? { type: 2 } : { type: 3 },
       strokeStyle: n.type === 'external' ? 'dashed' : 'solid',
     }))
+    const data = icons.get(n.icon)
+    if (data) {
+      const fileId = `icon_${hash(n.icon).toString(16)}`
+      files[fileId] = { mimeType: 'image/svg+xml', id: fileId, dataURL: data, created: 1 }
+      add(base(`${nid(n.id)}_icon`, 'image', b.x + 8, b.y + (b.height - 28) / 2, 28, 28, {
+        fileId, status: 'saved', scale: [1, 1], crop: null, strokeColor: 'transparent',
+      }))
+    }
     const label = n.tech ? `${n.label}\n${n.tech}` : n.label
-    const t = text(`${nid(n.id)}_text`, label, b.x + 8, 0, b.width - 16, 14, { containerId: shape.id })
+    const slot = iconInfo(n.icon) ? ICON_SLOT : 0
+    const t = text(`${nid(n.id)}_text`, label, b.x + 8 + slot, 0, b.width - 16 - slot, 14, { containerId: shape.id })
     t.y = b.y + (b.height - t.height) / 2
     shape.boundElements.push({ type: 'text', id: t.id })
     add(t)
@@ -95,6 +106,6 @@ export async function toExcalidraw(model) {
 
   return JSON.stringify({
     type: 'excalidraw', version: 2, source: 'diagram-studio', elements,
-    appState: { viewBackgroundColor: '#ffffff', gridSize: null }, files: {},
+    appState: { viewBackgroundColor: '#ffffff', gridSize: null }, files,
   }, null, 2) + '\n'
 }

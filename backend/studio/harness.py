@@ -16,7 +16,7 @@ from django.conf import settings
 from .llm import LLMConfigError, get_llm
 from .render_mermaid import to_mermaid
 from .sanitize import InvalidDiagram
-from .sysmodel import SCHEMA_HINT, validate_model
+from .sysmodel import SCHEMA_HINT, icon_catalogue, validate_model
 
 FORMATS = ('mermaid', 'svg')  # default view: Mermaid, or ELK auto-layout SVG
 
@@ -31,6 +31,9 @@ SYSTEM_PROMPT = (
     'replication or bulk data flow. Keep it readable: at most ~25 nodes. '
     'When modifying an existing model, keep the ids of unchanged components stable. '
     'If given an existing diagram as Mermaid or SVG instead of a model, convert it to a model. '
+    'Set "icon" only for managed cloud services when the provider is stated or obvious (e.g. "Lambda", '
+    '"Cosmos DB", "Cloud Run"); use "<provider>:<service>" from this list and omit it otherwise: '
+    + icon_catalogue() + '. '
     '"explanation" is 1-3 sentences.'
 )
 

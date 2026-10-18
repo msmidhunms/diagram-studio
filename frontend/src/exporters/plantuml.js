@@ -1,5 +1,21 @@
 // System model -> PlantUML component diagram.
+import { iconInfo } from '../icons'
 import { gid, nid, walk } from './common'
+
+/** !include lines and a macro name per icon, from PlantUML's standard library. */
+export function pumlIcons(model) {
+  const includes = new Set()
+  const macros = {}
+  for (const n of model.nodes) {
+    const info = iconInfo(n.icon)
+    if (!info?.puml) continue
+    includes.add(`!include <${info.pumlLib}/${info.pumlCommon}>`)
+    includes.add(`!include <${info.pumlLib}/${info.puml}>`)
+    macros[n.id] = { macro: info.puml.split('/').pop(), service: info.label }
+  }
+  // the provider's common file must come before its service files
+  return { includes: [...includes].sort((a, b) => b.includes('Common') - a.includes('Common')), macros }
+}
 
 const ELEMENT = {
   service: 'component',
@@ -28,12 +44,19 @@ const str = (s) => String(s).replace(/"/g, "'")
 const stereo = (s) => String(s).replace(/[<>]/g, '')
 
 export function toPlantUml(model, title = '') {
-  const out = ['@startuml']
+  const { includes, macros } = pumlIcons(model)
+  const out = ['@startuml', ...includes]
   if (title) out.push(`title ${str(title)}`)
   out.push(model.direction === 'TD' ? 'top to bottom direction' : 'left to right direction',
     'skinparam shadowing false', 'skinparam componentStyle rectangle', '')
   walk(model, {
     onNode(n, depth) {
+      if (macros[n.id]) {
+        // the technology slot is required by these macros; default to the service name, e.g. [Amazon SQS]
+        const { macro, service } = macros[n.id]
+        out.push(`${'  '.repeat(depth)}${macro}(${nid(n.id)}, "${str(n.label)}", "${str(n.tech || service)}")`)
+        return
+      }
       const tech = n.tech ? ` <<${stereo(n.tech)}>>` : ''
       out.push(`${'  '.repeat(depth)}${ELEMENT[n.type] || 'rectangle'} "${str(n.label)}" as ${nid(n.id)}${tech}`)
     },

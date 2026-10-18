@@ -1,10 +1,10 @@
 import json
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from . import harness
+from . import harness, icons
 from .models import Diagram, DiagramVersion
 from .sysmodel import diff_models
 
@@ -128,3 +128,18 @@ def repair(request, pk):
         result = harness.repair(latest.prompt, latest.code, error, latest.model)
         return JsonResponse(_diagram(_save_version(diagram, f'(auto-repair) {error[:120]}', result)))
     return _run(go)
+
+
+@require_http_methods(['GET'])
+def icon(request, key):
+    """Cloud icon artwork for the Auto-layout view, e.g. /api/icons/aws:lambda.svg"""
+    try:
+        svg = icons.get_icon(key)
+    except KeyError:
+        return JsonResponse({'error': 'Unknown icon'}, status=404)
+    except icons.IconUnavailable as e:
+        return JsonResponse({'error': f'Icon unavailable: {e}'}, status=502)
+    resp = HttpResponse(svg, content_type='image/svg+xml')
+    resp['Cache-Control'] = 'public, max-age=86400'
+    resp['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'"
+    return resp

@@ -138,3 +138,7 @@ LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
 LLM_BASE_URL = os.environ.get('LLM_BASE_URL', '')
 LLM_MODEL = os.environ.get('LLM_MODEL', '')
 HARNESS_MAX_REPAIRS = int(os.environ.get('HARNESS_MAX_REPAIRS', '2'))
+
+# Cloud icon artwork is fetched server-side (third-party CDNs don't reliably allow
+# browser CORS) and cached here, so icons keep working offline after first use.
+ICON_CACHE_DIR = Path(os.environ.get('ICON_CACHE_DIR', BASE_DIR / '.icon_cache'))

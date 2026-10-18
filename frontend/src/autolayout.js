@@ -1,6 +1,7 @@
 // System model -> auto-laid-out SVG. ELK computes positions and orthogonal edge routes;
 // this file only measures text and draws shapes, so no LLM is involved in layout.
 import ELK from 'elkjs/lib/elk.bundled.js'
+import { ICON_SLOT, fetchIcon, iconInfo, loadIcons } from './icons'
 
 const elk = new ELK()
 const FONT = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
@@ -54,10 +55,11 @@ export function wrap(text, max = WRAP) {
 function measureNode(n) {
   const lines = wrap(n.label)
   const longest = Math.max(...lines.map((l) => l.length))
-  const width = Math.max(120, longest * LABEL_PX + 32, n.tech ? n.tech.length * TECH_PX + 32 : 0)
+  const icon = iconInfo(n.icon) ? ICON_SLOT : 0
+  const width = icon + Math.max(120, longest * LABEL_PX + 32, n.tech ? n.tech.length * TECH_PX + 32 : 0)
   const pad = n.type === 'database' || n.type === 'storage' ? 34 : 24 // room for cylinder caps
-  const height = lines.length * LINE_H + (n.tech ? 14 : 0) + pad
-  return { lines, width: Math.round(width), height: Math.round(height) }
+  const height = Math.max(lines.length * LINE_H + (n.tech ? 14 : 0) + pad, icon ? 48 : 0)
+  return { lines, icon, width: Math.round(width), height: Math.round(height) }
 }
 
 function buildGraph(model) {
@@ -147,7 +149,7 @@ function nodeText(n, m, x, y, w, h) {
   const total = m.lines.length * LINE_H + (n.tech ? 14 : 0)
   const shift = n.type === 'database' || n.type === 'storage' ? 4 : 0
   let ty = y + (h - total) / 2 + 12 + shift
-  const cx = x + w / 2
+  const cx = x + m.icon + (w - m.icon) / 2 // text is centred in the space right of the icon
   let out = ''
   for (const line of m.lines) {
     out += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2328">${esc(line)}</text>`
@@ -155,6 +157,19 @@ function nodeText(n, m, x, y, w, h) {
   }
   if (n.tech) out += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="11" fill="#57606a">${esc(n.tech)}</text>`
   return out
+}
+
+// Icon artwork (as a data URI) or, when it isn't available, a provider badge
+function nodeIcon(n, x, y, h, icons) {
+  const info = iconInfo(n.icon)
+  if (!info) return ''
+  const size = 28
+  const ix = x + 8
+  const iy = y + (h - size) / 2
+  const data = icons.get(n.icon)
+  if (data) return `<image x="${ix}" y="${iy}" width="${size}" height="${size}" xlink:href="${data}"><title>${esc(info.label)}</title></image>`
+  return `<g><title>${esc(info.label)}</title><rect x="${ix}" y="${y + h / 2 - 8}" width="${size}" height="16" rx="4" fill="${info.providerColor}"/>` +
+    `<text x="${ix + size / 2}" y="${y + h / 2 + 3.5}" text-anchor="middle" font-size="8" font-weight="700" fill="#ffffff">${esc(info.providerName)}</text></g>`
 }
 
 function collect(node, out = new Map()) {
@@ -172,9 +187,13 @@ export async function layoutModel(model) {
   return { laid, shapes: collect(laid), measured }
 }
 
-/** Lay out a system model with ELK and return a standalone SVG string. */
-export async function modelToSvg(model) {
-  const { laid, shapes, measured } = await layoutModel(model)
+/**
+ * Lay out a system model with ELK and return a standalone SVG string.
+ * Cloud icons are fetched with `loadIcon(key) -> data URI | null` and embedded, so the SVG
+ * has no external references; missing icons become provider badges.
+ */
+export async function modelToSvg(model, { loadIcon = fetchIcon } = {}) {
+  const [{ laid, shapes, measured }, icons] = await Promise.all([layoutModel(model), loadIcons(model, loadIcon)])
   const W = Math.ceil(laid.width)
   const H = Math.ceil(laid.height)
   const parts = []
@@ -214,7 +233,8 @@ export async function modelToSvg(model) {
   for (const n of model.nodes) {
     const s = shapes.get(`n_${n.id}`)
     const [fill, stroke] = NODE_COLORS[n.type] || DEFAULT_COLORS
-    parts.push(nodeShape(n.type, s.x, s.y, s.width, s.height, fill, stroke) + nodeText(n, measured[n.id], s.x, s.y, s.width, s.height))
+    parts.push(nodeShape(n.type, s.x, s.y, s.width, s.height, fill, stroke) +
+      nodeIcon(n, s.x, s.y, s.height, icons) + nodeText(n, measured[n.id], s.x, s.y, s.width, s.height))
   }
 
   const markers = Object.entries(EDGE_STYLES)
@@ -224,7 +244,7 @@ export async function modelToSvg(model) {
     .join('')
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="${FONT}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="${FONT}">` +
     `<defs>${markers}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>` +
     parts.join('') + labels.join('') + '</svg>'
   )
