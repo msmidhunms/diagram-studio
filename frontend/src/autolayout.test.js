@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import ecommerce from './__fixtures__/ecommerce.json'
+import ecommerce from '../../shared/fixtures/ecommerce.json'
 import { layoutModel, modelToSvg, wrap } from './autolayout'
 
 const inside = (a, b) =>

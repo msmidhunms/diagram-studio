@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as api from './api'
 import Preview from './Preview'
 import { downloadPng, downloadSvg, downloadText } from './exportFile'
 import { MODEL_EXPORTS } from './exporters'
+import { toMermaid, toMermaidSequence } from './exporters/mermaid'
+import { VIEWS, deriveModel } from './views'
 
 const MAX_AUTO_REPAIRS = 2
 
@@ -89,7 +91,8 @@ export default function App() {
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
   const [renderedSvg, setRenderedSvg] = useState(null)
-  const [view, setView] = useState('mermaid')
+  const [view, setView] = useState('mermaid') // renderer: 'svg' (Auto-layout) or 'mermaid'
+  const [perspective, setPerspective] = useState('full') // which view of the system, see views.js
   const [confirmDelete, setConfirmDelete] = useState(false)
   const repairs = useRef(0)
 
@@ -100,6 +103,7 @@ export default function App() {
     setCurrent(d)
     setVersionIdx(d.versions.length - 1)
     setView(d.format)
+    setPerspective('full')
     repairs.current = 0
     setRenderedSvg(null)
     setConfirmDelete(false)
@@ -143,22 +147,37 @@ export default function App() {
   const hasMermaid = version && (version.model || current.format === 'mermaid')
   const isLatest = current && versionIdx === current.versions.length - 1
 
+  // Views other than Full are derived in the browser and rendered with the JS Mermaid port;
+  // the sequence view only exists as Mermaid.
+  const isFull = !version?.model || perspective === 'full'
+  const isSequence = !isFull && perspective === 'sequence'
+  const viewModel = useMemo(
+    () => (version?.model ? deriveModel(version.model, perspective) : null), [version, perspective])
+  const previewView = isSequence ? 'mermaid' : activeView
+  const previewCode = useMemo(() => {
+    if (isFull) return version?.code
+    return isSequence ? toMermaidSequence(version.model) : toMermaid(viewModel)
+  }, [isFull, isSequence, version, viewModel])
+  const viewLabel = VIEWS.find((v) => v.id === perspective)?.label
+  const fileTitle = (suffix) => [current.title, isFull ? null : viewLabel, suffix].filter(Boolean).join(' ')
+
   const exportAs = async (id) => {
-    if (id === 'mermaid') return downloadText(version.code, current.title, 'mmd', 'text/plain')
+    if (id === 'mermaid') return downloadText(previewCode, fileTitle(), 'mmd', 'text/plain')
     const f = MODEL_EXPORTS.find((x) => x.id === id)
     try {
-      const text = await f.build(version.model, current.title)
-      downloadText(text, f.suffix ? `${current.title} ${f.suffix}` : current.title, f.ext, f.mime)
+      const text = await f.build(viewModel, current.title)
+      downloadText(text, fileTitle(f.suffix), f.ext, f.mime)
     } catch (e) {
       setError(`Export failed: ${e.message}`)
     }
   }
 
   const onRenderError = useCallback((msg) => {
-    if (!isLatest || busy || repairs.current >= MAX_AUTO_REPAIRS) return
+    // only the stored Mermaid comes from the model; derived views are our own rendering
+    if (!isFull || !isLatest || busy || repairs.current >= MAX_AUTO_REPAIRS) return
     repairs.current += 1
     run(`Fixing syntax (attempt ${repairs.current})…`, () => api.repair(current.id, msg))
-  }, [isLatest, busy, current]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isFull, isLatest, busy, current]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="app">
@@ -192,7 +211,7 @@ export default function App() {
                 <button onClick={() => setConfirmDelete(true)}>Delete</button>
               )}
               {version.model && (
-                <select value={view} onChange={(e) => { setRenderedSvg(null); setView(e.target.value) }} title="View">
+                <select value={previewView} disabled={isSequence} onChange={(e) => { setRenderedSvg(null); setView(e.target.value) }} title="Renderer">
                   <option value="svg">Auto-layout</option>
                   <option value="mermaid">Mermaid</option>
                 </select>
@@ -205,16 +224,32 @@ export default function App() {
               </div>
             </header>
             <Changes changes={version.changes} />
-            <Preview view={activeView} code={version.code} model={version.model} onRenderError={onRenderError} onSvg={setRenderedSvg} />
+            {version.model && (
+              <div className="views" role="tablist" aria-label="View">
+                {VIEWS.map((v) => (
+                  <button key={v.id} role="tab" aria-selected={perspective === v.id} title={v.hint}
+                    className={perspective === v.id ? 'on' : ''}
+                    onClick={() => { setRenderedSvg(null); setPerspective(v.id) }}>
+                    {v.label}
+                  </button>
+                ))}
+                {isSequence && <span className="muted">Order inferred from connections</span>}
+              </div>
+            )}
+            {viewModel && !viewModel.nodes.length ? (
+              <p className="preview empty-view muted">Nothing to show in this view: {VIEWS.find((v) => v.id === perspective).hint.toLowerCase()}.</p>
+            ) : (
+              <Preview view={previewView} code={previewCode} model={viewModel} onRenderError={onRenderError} onSvg={setRenderedSvg} />
+            )}
             <div className="actions export">
               <span className="muted">Export:</span>
-              <button disabled={!svgForExport} onClick={() => downloadSvg(svgForExport, current.title)}>SVG</button>
-              <button disabled={!svgForExport} onClick={() => downloadPng(svgForExport, current.title)}>PNG</button>
+              <button disabled={!svgForExport} onClick={() => downloadSvg(svgForExport, fileTitle())}>SVG</button>
+              <button disabled={!svgForExport} onClick={() => downloadPng(svgForExport, fileTitle())}>PNG</button>
               {(hasMermaid || version.model) && (
                 <select value="" onChange={(e) => exportAs(e.target.value)} aria-label="Export as another format">
                   <option value="" disabled>More formats…</option>
                   {hasMermaid && <option value="mermaid">Mermaid (.mmd)</option>}
-                  {version.model && MODEL_EXPORTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                  {version.model && !isSequence && MODEL_EXPORTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
                 </select>
               )}
             </div>

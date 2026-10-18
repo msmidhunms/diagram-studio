@@ -356,3 +356,12 @@ class IconProxyTests(TestCase):
                 self.assertEqual(self.client.get('/api/icons/azure:functions.svg').status_code, 502)
         with patch('studio.icons._download', return_value=b'<html>nope</html>'):
             self.assertEqual(self.client.get('/api/icons/azure:functions.svg').status_code, 502)
+
+
+class MermaidParityTests(TestCase):
+    def test_python_renderer_matches_shared_golden_file(self):
+        """The frontend's JS port (exporters/mermaid.js) is checked against the same file."""
+        from pathlib import Path
+        fixtures = Path(__file__).resolve().parents[2] / 'shared' / 'fixtures'
+        model = validate_model(json.loads((fixtures / 'ecommerce.json').read_text()))
+        self.assertEqual(to_mermaid(model) + '\n', (fixtures / 'ecommerce.mmd').read_text())

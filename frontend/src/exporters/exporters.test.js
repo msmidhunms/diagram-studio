@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import model from '../__fixtures__/ecommerce.json'
+import model from '../../../shared/fixtures/ecommerce.json'
 import { MODEL_EXPORTS } from '.'
 import { toC4 } from './c4'
 import { toD2 } from './d2'
