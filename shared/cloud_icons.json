@@ -1,0 +1,550 @@
+{
+ "_about": "Cloud service icons. Keys are \"<provider>:<service>\". img: artwork URL (AWS/GCP: icons.terrastruct.com, Azure: diagrams.net). drawio: AWS resIcon name / Azure image path / GCP uses img. puml: PlantUML stdlib path (awslib, azure, gcp). Names were taken from each tool's own sources; null = not available there.",
+ "providers": {
+  "aws": {
+   "name": "AWS",
+   "color": "#FF9900",
+   "puml_lib": "awslib",
+   "puml_common": "AWSCommon"
+  },
+  "azure": {
+   "name": "Azure",
+   "color": "#0078D4",
+   "puml_lib": "azure",
+   "puml_common": "AzureCommon"
+  },
+  "gcp": {
+   "name": "GCP",
+   "color": "#4285F4",
+   "puml_lib": "gcp",
+   "puml_common": "GCPCommon"
+  }
+ },
+ "icons": {
+  "aws:lambda": {
+   "label": "AWS Lambda",
+   "img": "https://icons.terrastruct.com/aws%2FCompute%2FAWS-Lambda.svg",
+   "drawio": "lambda",
+   "drawio_color": "#ED7100",
+   "puml": "Compute/Lambda"
+  },
+  "aws:ec2": {
+   "label": "Amazon EC2",
+   "img": "https://icons.terrastruct.com/aws%2FCompute%2FAmazon-EC2.svg",
+   "drawio": "ec2",
+   "drawio_color": "#ED7100",
+   "puml": "Compute/EC2"
+  },
+  "aws:eks": {
+   "label": "Amazon EKS",
+   "img": "https://icons.terrastruct.com/aws%2FCompute%2FAmazon-Elastic-Kubernetes-Service.svg",
+   "drawio": "eks",
+   "drawio_color": "#ED7100",
+   "puml": "Containers/ElasticKubernetesService"
+  },
+  "aws:ecs": {
+   "label": "Amazon ECS",
+   "img": "https://icons.terrastruct.com/aws%2FCompute%2FAmazon-Elastic-Container-Service.svg",
+   "drawio": "ecs",
+   "drawio_color": "#ED7100",
+   "puml": "Containers/ElasticContainerService"
+  },
+  "aws:fargate": {
+   "label": "AWS Fargate",
+   "img": "https://icons.terrastruct.com/aws%2FCompute%2FAWS-Fargate.svg",
+   "drawio": "fargate",
+   "drawio_color": "#ED7100",
+   "puml": "Containers/Fargate"
+  },
+  "aws:api_gateway": {
+   "label": "Amazon API Gateway",
+   "img": "https://icons.terrastruct.com/aws%2FNetworking%20&%20Content%20Delivery%2FAmazon-API-Gateway.svg",
+   "drawio": "api_gateway",
+   "drawio_color": "#E7157B",
+   "puml": "ApplicationIntegration/APIGateway"
+  },
+  "aws:elb": {
+   "label": "Elastic Load Balancing",
+   "img": "https://icons.terrastruct.com/aws%2FNetworking%20&%20Content%20Delivery%2FElastic-Load-Balancing.svg",
+   "drawio": "elastic_load_balancing",
+   "drawio_color": "#8C4FFF",
+   "puml": "NetworkingContentDelivery/ElasticLoadBalancing"
+  },
+  "aws:cloudfront": {
+   "label": "Amazon CloudFront",
+   "img": "https://icons.terrastruct.com/aws%2FNetworking%20&%20Content%20Delivery%2FAmazon-CloudFront.svg",
+   "drawio": "cloudfront",
+   "drawio_color": "#8C4FFF",
+   "puml": "NetworkingContentDelivery/CloudFront"
+  },
+  "aws:route53": {
+   "label": "Amazon Route 53",
+   "img": "https://icons.terrastruct.com/aws%2FNetworking%20&%20Content%20Delivery%2FAmazon-Route-53.svg",
+   "drawio": "route_53",
+   "drawio_color": "#8C4FFF",
+   "puml": "NetworkingContentDelivery/Route53"
+  },
+  "aws:s3": {
+   "label": "Amazon S3",
+   "img": "https://icons.terrastruct.com/aws%2FStorage%2FAmazon-Simple-Storage-Service-S3.svg",
+   "drawio": "s3",
+   "drawio_color": "#7AA116",
+   "puml": "Storage/SimpleStorageService"
+  },
+  "aws:rds": {
+   "label": "Amazon RDS",
+   "img": "https://icons.terrastruct.com/aws%2FDatabase%2FAmazon-RDS.svg",
+   "drawio": "rds",
+   "drawio_color": "#C925D1",
+   "puml": "Database/RDS"
+  },
+  "aws:aurora": {
+   "label": "Amazon Aurora",
+   "img": "https://icons.terrastruct.com/aws%2FDatabase%2FAmazon-Aurora.svg",
+   "drawio": "aurora",
+   "drawio_color": "#C925D1",
+   "puml": "Database/Aurora"
+  },
+  "aws:dynamodb": {
+   "label": "Amazon DynamoDB",
+   "img": "https://icons.terrastruct.com/aws%2FDatabase%2FAmazon-DynamoDB.svg",
+   "drawio": "dynamodb",
+   "drawio_color": "#C925D1",
+   "puml": "Database/DynamoDB"
+  },
+  "aws:elasticache": {
+   "label": "Amazon ElastiCache",
+   "img": "https://icons.terrastruct.com/aws%2FDatabase%2FAmazon-ElastiCache.svg",
+   "drawio": "elasticache",
+   "drawio_color": "#C925D1",
+   "puml": "Database/ElastiCache"
+  },
+  "aws:sqs": {
+   "label": "Amazon SQS",
+   "img": "https://icons.terrastruct.com/aws%2FApplication%20Integration%2FAmazon-Simple-Queue-Service-SQS.svg",
+   "drawio": "sqs",
+   "drawio_color": "#E7157B",
+   "puml": "ApplicationIntegration/SimpleQueueService"
+  },
+  "aws:sns": {
+   "label": "Amazon SNS",
+   "img": "https://icons.terrastruct.com/aws%2FApplication%20Integration%2FAmazon-Simple-Notification-Service-SNS.svg",
+   "drawio": "sns",
+   "drawio_color": "#E7157B",
+   "puml": "ApplicationIntegration/SimpleNotificationService"
+  },
+  "aws:eventbridge": {
+   "label": "Amazon EventBridge",
+   "img": "https://icons.terrastruct.com/aws%2FApplication%20Integration%2FAmazon-EventBridge.svg",
+   "drawio": "eventbridge",
+   "drawio_color": "#E7157B",
+   "puml": "ApplicationIntegration/EventBridge"
+  },
+  "aws:step_functions": {
+   "label": "AWS Step Functions",
+   "img": "https://icons.terrastruct.com/aws%2FApplication%20Integration%2FAWS-Step-Functions.svg",
+   "drawio": "step_functions",
+   "drawio_color": "#E7157B",
+   "puml": "ApplicationIntegration/StepFunctions"
+  },
+  "aws:kinesis": {
+   "label": "Amazon Kinesis",
+   "img": "https://icons.terrastruct.com/aws%2FAnalytics%2FAmazon-Kinesis.svg",
+   "drawio": "kinesis",
+   "drawio_color": "#8C4FFF",
+   "puml": "Analytics/Kinesis"
+  },
+  "aws:redshift": {
+   "label": "Amazon Redshift",
+   "img": "https://icons.terrastruct.com/aws%2FDatabase%2FAmazon-Redshift.svg",
+   "drawio": "redshift",
+   "drawio_color": "#8C4FFF",
+   "puml": "Analytics/Redshift"
+  },
+  "aws:opensearch": {
+   "label": "Amazon OpenSearch Service",
+   "img": "https://icons.terrastruct.com/aws%2FAnalytics%2FAmazon-Elasticsearch-Service.svg",
+   "drawio": "elasticsearch_service",
+   "drawio_color": "#8C4FFF",
+   "puml": "Analytics/OpenSearchService"
+  },
+  "aws:cognito": {
+   "label": "Amazon Cognito",
+   "img": "https://icons.terrastruct.com/aws%2FSecurity%2C%20Identity%2C%20&%20Compliance%2FAmazon-Cognito.svg",
+   "drawio": "cognito",
+   "drawio_color": "#DD344C",
+   "puml": "SecurityIdentityCompliance/Cognito"
+  },
+  "aws:iam": {
+   "label": "AWS IAM",
+   "img": "https://icons.terrastruct.com/aws%2FSecurity%2C%20Identity%2C%20&%20Compliance%2FAWS-Identify-and-Access-Management_IAM.svg",
+   "drawio": "identity_and_access_management",
+   "drawio_color": "#DD344C",
+   "puml": "SecurityIdentityCompliance/IdentityandAccessManagement"
+  },
+  "aws:secrets_manager": {
+   "label": "AWS Secrets Manager",
+   "img": "https://icons.terrastruct.com/aws%2FSecurity%2C%20Identity%2C%20&%20Compliance%2FAWS-Secrets-Manager.svg",
+   "drawio": "secrets_manager",
+   "drawio_color": "#DD344C",
+   "puml": "SecurityIdentityCompliance/SecretsManager"
+  },
+  "aws:cloudwatch": {
+   "label": "Amazon CloudWatch",
+   "img": "https://icons.terrastruct.com/aws%2FManagement%20&%20Governance%2FAmazon-CloudWatch.svg",
+   "drawio": "cloudwatch_2",
+   "drawio_color": "#E7157B",
+   "puml": "ManagementGovernance/CloudWatch"
+  },
+  "aws:sagemaker": {
+   "label": "Amazon SageMaker",
+   "img": "https://icons.terrastruct.com/aws%2FMachine%20Learning%2FAmazon-SageMaker.svg",
+   "drawio": "sagemaker",
+   "drawio_color": "#01A88D",
+   "puml": "MachineLearning/SageMaker"
+  },
+  "aws:bedrock": {
+   "label": "Amazon Bedrock",
+   "img": null,
+   "drawio": "bedrock",
+   "drawio_color": "#01A88D",
+   "puml": null
+  },
+  "azure:vm": {
+   "label": "Azure Virtual Machines",
+   "img": "https://app.diagrams.net/img/lib/azure2/compute/Virtual_Machine.svg",
+   "drawio": "img/lib/azure2/compute/Virtual_Machine.svg",
+   "puml": "Compute/AzureVirtualMachine"
+  },
+  "azure:aks": {
+   "label": "Azure Kubernetes Service",
+   "img": "https://app.diagrams.net/img/lib/azure2/containers/Kubernetes_Services.svg",
+   "drawio": "img/lib/azure2/containers/Kubernetes_Services.svg",
+   "puml": "Containers/AzureKubernetesService"
+  },
+  "azure:container_instances": {
+   "label": "Azure Container Instances",
+   "img": "https://app.diagrams.net/img/lib/azure2/containers/Container_Instances.svg",
+   "drawio": "img/lib/azure2/containers/Container_Instances.svg",
+   "puml": "Containers/AzureContainerInstance"
+  },
+  "azure:container_registry": {
+   "label": "Azure Container Registry",
+   "img": "https://app.diagrams.net/img/lib/azure2/containers/Container_Registries.svg",
+   "drawio": "img/lib/azure2/containers/Container_Registries.svg",
+   "puml": "Containers/AzureContainerRegistry"
+  },
+  "azure:functions": {
+   "label": "Azure Functions",
+   "img": "https://app.diagrams.net/img/lib/azure2/compute/Function_Apps.svg",
+   "drawio": "img/lib/azure2/compute/Function_Apps.svg",
+   "puml": "Compute/AzureFunction"
+  },
+  "azure:app_service": {
+   "label": "Azure App Service",
+   "img": "https://app.diagrams.net/img/lib/azure2/app_services/App_Services.svg",
+   "drawio": "img/lib/azure2/app_services/App_Services.svg",
+   "puml": "Compute/AzureAppService"
+  },
+  "azure:api_management": {
+   "label": "Azure API Management",
+   "img": "https://app.diagrams.net/img/lib/azure2/integration/API_Management_Services.svg",
+   "drawio": "img/lib/azure2/integration/API_Management_Services.svg",
+   "puml": "Web/AzureAPIManagement"
+  },
+  "azure:app_gateway": {
+   "label": "Azure Application Gateway",
+   "img": "https://app.diagrams.net/img/lib/azure2/networking/Application_Gateways.svg",
+   "drawio": "img/lib/azure2/networking/Application_Gateways.svg",
+   "puml": "Networking/AzureApplicationGateway"
+  },
+  "azure:load_balancer": {
+   "label": "Azure Load Balancer",
+   "img": "https://app.diagrams.net/img/lib/azure2/networking/Load_Balancers.svg",
+   "drawio": "img/lib/azure2/networking/Load_Balancers.svg",
+   "puml": "Networking/AzureLoadBalancer"
+  },
+  "azure:front_door": {
+   "label": "Azure Front Door",
+   "img": "https://app.diagrams.net/img/lib/azure2/networking/Front_Doors.svg",
+   "drawio": "img/lib/azure2/networking/Front_Doors.svg",
+   "puml": "Networking/AzureFrontDoor"
+  },
+  "azure:cdn": {
+   "label": "Azure CDN",
+   "img": "https://app.diagrams.net/img/lib/azure2/networking/CDN_Profiles.svg",
+   "drawio": "img/lib/azure2/networking/CDN_Profiles.svg",
+   "puml": "Web/AzureCDN"
+  },
+  "azure:dns": {
+   "label": "Azure DNS",
+   "img": "https://app.diagrams.net/img/lib/azure2/networking/DNS_Zones.svg",
+   "drawio": "img/lib/azure2/networking/DNS_Zones.svg",
+   "puml": "Networking/AzureDNS"
+  },
+  "azure:vnet": {
+   "label": "Azure Virtual Network",
+   "img": "https://app.diagrams.net/img/lib/azure2/networking/Virtual_Networks.svg",
+   "drawio": "img/lib/azure2/networking/Virtual_Networks.svg",
+   "puml": "Networking/AzureVirtualNetwork"
+  },
+  "azure:storage": {
+   "label": "Azure Storage",
+   "img": "https://app.diagrams.net/img/lib/azure2/storage/Storage_Accounts.svg",
+   "drawio": "img/lib/azure2/storage/Storage_Accounts.svg",
+   "puml": "Storage/AzureBlobStorage"
+  },
+  "azure:sql_database": {
+   "label": "Azure SQL Database",
+   "img": "https://app.diagrams.net/img/lib/azure2/databases/SQL_Database.svg",
+   "drawio": "img/lib/azure2/databases/SQL_Database.svg",
+   "puml": "Databases/AzureSqlDatabase"
+  },
+  "azure:cosmos_db": {
+   "label": "Azure Cosmos DB",
+   "img": "https://app.diagrams.net/img/lib/azure2/databases/Azure_Cosmos_DB.svg",
+   "drawio": "img/lib/azure2/databases/Azure_Cosmos_DB.svg",
+   "puml": "Databases/AzureCosmosDb"
+  },
+  "azure:postgresql": {
+   "label": "Azure Database for PostgreSQL",
+   "img": "https://app.diagrams.net/img/lib/azure2/databases/Azure_Database_PostgreSQL_Server.svg",
+   "drawio": "img/lib/azure2/databases/Azure_Database_PostgreSQL_Server.svg",
+   "puml": "Databases/AzureDatabaseForPostgreSQL"
+  },
+  "azure:redis": {
+   "label": "Azure Cache for Redis",
+   "img": "https://app.diagrams.net/img/lib/azure2/databases/Cache_Redis.svg",
+   "drawio": "img/lib/azure2/databases/Cache_Redis.svg",
+   "puml": "Databases/AzureRedisCache"
+  },
+  "azure:service_bus": {
+   "label": "Azure Service Bus",
+   "img": "https://app.diagrams.net/img/lib/azure2/integration/Service_Bus.svg",
+   "drawio": "img/lib/azure2/integration/Service_Bus.svg",
+   "puml": "Integration/AzureServiceBus"
+  },
+  "azure:event_hubs": {
+   "label": "Azure Event Hubs",
+   "img": "https://app.diagrams.net/img/lib/azure2/analytics/Event_Hubs.svg",
+   "drawio": "img/lib/azure2/analytics/Event_Hubs.svg",
+   "puml": "Analytics/AzureEventHub"
+  },
+  "azure:event_grid": {
+   "label": "Azure Event Grid",
+   "img": "https://app.diagrams.net/img/lib/azure2/integration/Event_Grid_Topics.svg",
+   "drawio": "img/lib/azure2/integration/Event_Grid_Topics.svg",
+   "puml": "Integration/AzureEventGrid"
+  },
+  "azure:logic_apps": {
+   "label": "Azure Logic Apps",
+   "img": "https://app.diagrams.net/img/lib/azure2/integration/Logic_Apps.svg",
+   "drawio": "img/lib/azure2/integration/Logic_Apps.svg",
+   "puml": "Integration/AzureLogicApps"
+  },
+  "azure:synapse": {
+   "label": "Azure Synapse Analytics",
+   "img": "https://app.diagrams.net/img/lib/azure2/analytics/Azure_Synapse_Analytics.svg",
+   "drawio": "img/lib/azure2/analytics/Azure_Synapse_Analytics.svg",
+   "puml": "Analytics/AzureSynapseAnalytics"
+  },
+  "azure:key_vault": {
+   "label": "Azure Key Vault",
+   "img": "https://app.diagrams.net/img/lib/azure2/security/Key_Vaults.svg",
+   "drawio": "img/lib/azure2/security/Key_Vaults.svg",
+   "puml": "Security/AzureKeyVault"
+  },
+  "azure:entra_id": {
+   "label": "Microsoft Entra ID",
+   "img": "https://app.diagrams.net/img/lib/azure2/identity/Azure_Active_Directory.svg",
+   "drawio": "img/lib/azure2/identity/Azure_Active_Directory.svg",
+   "puml": "Identity/AzureActiveDirectory"
+  },
+  "azure:monitor": {
+   "label": "Azure Monitor",
+   "img": "https://app.diagrams.net/img/lib/azure2/management_governance/Monitor.svg",
+   "drawio": "img/lib/azure2/management_governance/Monitor.svg",
+   "puml": "Management/AzureMonitor"
+  },
+  "azure:app_insights": {
+   "label": "Application Insights",
+   "img": "https://app.diagrams.net/img/lib/azure2/devops/Application_Insights.svg",
+   "drawio": "img/lib/azure2/devops/Application_Insights.svg",
+   "puml": "DevOps/AzureApplicationInsights"
+  },
+  "azure:machine_learning": {
+   "label": "Azure Machine Learning",
+   "img": "https://app.diagrams.net/img/lib/azure2/ai_machine_learning/Machine_Learning.svg",
+   "drawio": "img/lib/azure2/ai_machine_learning/Machine_Learning.svg",
+   "puml": "AIMachineLearning/AzureMachineLearningService"
+  },
+  "azure:ai_services": {
+   "label": "Azure AI Services",
+   "img": "https://app.diagrams.net/img/lib/azure2/ai_machine_learning/Cognitive_Services.svg",
+   "drawio": "img/lib/azure2/ai_machine_learning/Cognitive_Services.svg",
+   "puml": "AIMachineLearning/AzureCognitiveServices"
+  },
+  "azure:openai": {
+   "label": "Azure OpenAI",
+   "img": "https://app.diagrams.net/img/lib/azure2/ai_machine_learning/Azure_OpenAI.svg",
+   "drawio": "img/lib/azure2/ai_machine_learning/Azure_OpenAI.svg",
+   "puml": null
+  },
+  "gcp:compute_engine": {
+   "label": "Compute Engine",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FCompute%2FCompute%20Engine.svg",
+   "drawio": null,
+   "puml": "Compute/Compute_Engine"
+  },
+  "gcp:gke": {
+   "label": "Google Kubernetes Engine",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FCompute%2FKubetnetes%20Engine.svg",
+   "drawio": null,
+   "puml": "Compute/Kubernetes_Engine"
+  },
+  "gcp:cloud_run": {
+   "label": "Cloud Run",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FCompute%2FCloud%20Run.svg",
+   "drawio": null,
+   "puml": "Compute/Cloud_Run"
+  },
+  "gcp:cloud_functions": {
+   "label": "Cloud Functions",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FCompute%2FCloud%20Functions.svg",
+   "drawio": null,
+   "puml": "Compute/Cloud_Functions"
+  },
+  "gcp:app_engine": {
+   "label": "App Engine",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FCompute%2FApp%20Engine.svg",
+   "drawio": null,
+   "puml": "Compute/App_Engine"
+  },
+  "gcp:apigee": {
+   "label": "Apigee",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FAPI%20Management%2FApigee%20API%20Platform.svg",
+   "drawio": null,
+   "puml": "API_Management/Apigee_API_Platform"
+  },
+  "gcp:endpoints": {
+   "label": "Cloud Endpoints",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FAPI%20Management%2FCloud%20Endpoints.svg",
+   "drawio": null,
+   "puml": "API_Management/Cloud_Endpoints"
+  },
+  "gcp:load_balancing": {
+   "label": "Cloud Load Balancing",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FNetworking%2FCloud%20Load%20Balancing.svg",
+   "drawio": null,
+   "puml": "Networking/Cloud_Load_Balancing"
+  },
+  "gcp:cdn": {
+   "label": "Cloud CDN",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FNetworking%2FCloud%20CDN.svg",
+   "drawio": null,
+   "puml": "Networking/Cloud_CDN"
+  },
+  "gcp:dns": {
+   "label": "Cloud DNS",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FNetworking%2FCloud%20DNS.svg",
+   "drawio": null,
+   "puml": "Networking/Cloud_DNS"
+  },
+  "gcp:armor": {
+   "label": "Cloud Armor",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FNetworking%2FCloud%20Armor.svg",
+   "drawio": null,
+   "puml": "Networking/Cloud_Armor"
+  },
+  "gcp:vpc": {
+   "label": "Virtual Private Cloud",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FNetworking%2FVirtual%20Private%20Cloud.svg",
+   "drawio": null,
+   "puml": "Networking/Virtual_Private_Cloud"
+  },
+  "gcp:cloud_storage": {
+   "label": "Cloud Storage",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FStorage%2FCloud%20Storage.svg",
+   "drawio": null,
+   "puml": "Storage/Cloud_Storage"
+  },
+  "gcp:cloud_sql": {
+   "label": "Cloud SQL",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FDatabases%2FCloud%20SQL.svg",
+   "drawio": null,
+   "puml": "Databases/Cloud_SQL"
+  },
+  "gcp:spanner": {
+   "label": "Cloud Spanner",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FDatabases%2FCloud%20Spanner.svg",
+   "drawio": null,
+   "puml": "Databases/Cloud_Spanner"
+  },
+  "gcp:firestore": {
+   "label": "Firestore",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FDatabases%2FCloud%20Firestore.svg",
+   "drawio": null,
+   "puml": "Databases/Cloud_Firestore"
+  },
+  "gcp:bigtable": {
+   "label": "Bigtable",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FDatabases%2FCloud%20Bigtable.svg",
+   "drawio": null,
+   "puml": "Databases/Cloud_Bigtable"
+  },
+  "gcp:memorystore": {
+   "label": "Memorystore",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FDatabases%2FCloud%20Memorystore.svg",
+   "drawio": null,
+   "puml": "Databases/Cloud_Memorystore"
+  },
+  "gcp:pubsub": {
+   "label": "Pub/Sub",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FData%20Analytics%2FCloud%20PubSub.svg",
+   "drawio": null,
+   "puml": "Data_Analytics/Cloud_PubSub"
+  },
+  "gcp:dataflow": {
+   "label": "Dataflow",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FData%20Analytics%2FCloud%20Dataflow.svg",
+   "drawio": null,
+   "puml": "Data_Analytics/Cloud_Dataflow"
+  },
+  "gcp:bigquery": {
+   "label": "BigQuery",
+   "img": null,
+   "drawio": null,
+   "puml": "Data_Analytics/BigQuery"
+  },
+  "gcp:tasks": {
+   "label": "Cloud Tasks",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FDeveloper%20Tools%2FCloud%20Tasks.svg",
+   "drawio": null,
+   "puml": "Developer_Tools/Cloud_Tasks"
+  },
+  "gcp:scheduler": {
+   "label": "Cloud Scheduler",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FDeveloper%20Tools%2FCloud%20Scheduler.svg",
+   "drawio": null,
+   "puml": "Developer_Tools/Cloud_Scheduler"
+  },
+  "gcp:iam": {
+   "label": "Cloud IAM",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FSecurity%2FCloud%20IAM.svg",
+   "drawio": null,
+   "puml": "Security/Cloud_IAM"
+  },
+  "gcp:kms": {
+   "label": "Cloud KMS",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FSecurity%2FKey%20Management%20Service.svg",
+   "drawio": null,
+   "puml": "Security/Key_Management_Service"
+  },
+  "gcp:vertex_ai": {
+   "label": "Vertex AI",
+   "img": "https://icons.terrastruct.com/gcp%2FProducts%20and%20services%2FAI%20and%20Machine%20Learning%2FAI%20Platform.svg",
+   "drawio": null,
+   "puml": "AI_and_Machine_Learning/AI_Platform"
+  }
+ }
+}

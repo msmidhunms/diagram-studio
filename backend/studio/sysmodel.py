@@ -7,12 +7,18 @@ be diffed by component instead of by text.
 Shape:
   {"direction": "LR" | "TD",
    "groups": [{"id", "label", "kind", "parent"?}],
-   "nodes":  [{"id", "label", "type", "group"?, "tech"?}],
+   "nodes":  [{"id", "label", "type", "group"?, "tech"?, "icon"?}],
    "edges":  [{"from", "to", "label"?, "style"?}]}
 """
+import json
 import re
+from pathlib import Path
 
 from .sanitize import InvalidDiagram
+
+# Cloud service icons ("aws:lambda", "azure:cosmos_db", ...), shared with the frontend
+ICONS_FILE = Path(__file__).resolve().parents[2] / 'shared' / 'cloud_icons.json'
+ICONS = json.loads(ICONS_FILE.read_text())['icons']
 
 NODE_TYPES = ('service', 'database', 'cache', 'queue', 'storage', 'client', 'user',
               'external', 'gateway', 'function', 'other')
@@ -25,9 +31,24 @@ SCHEMA_HINT = (
     '{"direction": "LR"|"TD", '
     '"groups": [{"id": str, "label": str, "kind": "tier"|"trust_zone"|"network"|"cloud"|"other", "parent": group id (optional)}], '
     '"nodes": [{"id": str, "label": str, "type": "' + '"|"'.join(NODE_TYPES) + '", '
-    '"group": group id (optional), "tech": str (optional, e.g. "PostgreSQL 16")}], '
+    '"group": group id (optional), "tech": str (optional, e.g. "PostgreSQL 16"), '
+    '"icon": cloud icon key (optional, see below)}], '
     '"edges": [{"from": node id, "to": node id, "label": str (optional), "style": "sync"|"async"|"data"}]}'
 )
+
+
+def icon_catalogue() -> str:
+    """Compact list of icon keys for the prompt, e.g. 'aws: lambda, ec2, ...'."""
+    by_provider = {}
+    for key in ICONS:
+        provider, service = key.split(':')
+        by_provider.setdefault(provider, []).append(service)
+    return '; '.join(f'{p}: {", ".join(s)}' for p, s in by_provider.items())
+
+
+def _icon(value):
+    key = str(value or '').strip().lower().replace(' ', '_')
+    return key if key in ICONS else None  # unknown icons are dropped, not an error
 
 
 def _id(value, what):
@@ -95,7 +116,8 @@ def validate_model(model) -> dict:
             raise InvalidDiagram(f'Node "{nid}" references unknown group "{group}"')
         nodes.append({'id': nid, 'label': _text(n.get('label')) or nid,
                       'type': n.get('type') if n.get('type') in NODE_TYPES else 'other',
-                      'group': group, 'tech': _text(n.get('tech'), 60) or None})
+                      'group': group, 'tech': _text(n.get('tech'), 60) or None,
+                      'icon': _icon(n.get('icon'))})
 
     edges = []
     for e in _list(model, 'edges', MAX_EDGES):
@@ -118,7 +140,7 @@ def diff_models(old: dict | None, new: dict | None) -> dict | None:
     on, nn = {n['id']: n for n in old['nodes']}, {n['id']: n for n in new['nodes']}
     key = lambda e: f"{e['from']}->{e['to']}"  # noqa: E731
     oe, ne = {key(e): e for e in old['edges']}, {key(e): e for e in new['edges']}
-    fields = ('label', 'type', 'group', 'tech')
+    fields = ('label', 'type', 'group', 'tech', 'icon')
     return {
         'added_nodes': [nn[i]['label'] for i in nn if i not in on],
         'removed_nodes': [on[i]['label'] for i in on if i not in nn],

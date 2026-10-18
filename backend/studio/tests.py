@@ -98,8 +98,24 @@ class SystemModelTests(TestCase):
             'edges': [{'from': 'api gw', 'to': 'api gw', 'style': 'teleport'}]})
         self.assertEqual(m['direction'], 'LR')
         self.assertEqual(m['nodes'][0], {'id': 'api_gw', 'label': 'API Gateway', 'type': 'other',
-                                         'group': None, 'tech': None})
+                                         'group': None, 'tech': None, 'icon': None})
         self.assertEqual(m['edges'][0]['style'], 'sync')
+
+    def test_icons_are_checked_against_the_catalogue(self):
+        m = validate_model({'nodes': [{'id': 'f', 'icon': 'AWS:Lambda'}, {'id': 'g', 'icon': 'aws:teleporter'},
+                                      {'id': 'h', 'icon': 'azure:cosmos db'}, {'id': 'i', 'icon': 42}]})
+        self.assertEqual([n['icon'] for n in m['nodes']], ['aws:lambda', None, 'azure:cosmos_db', None])
+
+    def test_icon_change_shows_in_diff(self):
+        old = validate_model({'nodes': [{'id': 'f', 'label': 'Fn'}]})
+        new = validate_model({'nodes': [{'id': 'f', 'label': 'Fn', 'icon': 'gcp:cloud_run'}]})
+        self.assertEqual(diff_models(old, new)['changed_nodes'], ['Fn'])
+
+    def test_prompt_lists_every_icon(self):
+        from .sysmodel import ICONS
+        for key in ICONS:
+            provider, service = key.split(':')
+            self.assertIn(service, harness.SYSTEM_PROMPT)
 
     def test_rejects_broken_references(self):
         bad = [

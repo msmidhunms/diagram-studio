@@ -1,6 +1,7 @@
 // System model -> D2 (https://d2lang.com). Groups become containers; edges use full
 // container paths (e.g. g_vpc.g_data.n_db) because D2 scopes keys to their container.
 import { GROUP_STYLES, NODE_COLORS } from '../autolayout'
+import { iconInfo } from '../icons'
 import { gid, nid, walk } from './common'
 
 const SHAPE = {
@@ -35,6 +36,8 @@ export function toD2(model, title = '') {
       const colors = NODE_COLORS[n.type]
       if (colors) props.push(`style: {fill: "${colors[0]}"; stroke: "${colors[1]}"}`)
       if (n.type === 'external') props.push('style.stroke-dash: 4')
+      const icon = iconInfo(n.icon)?.img
+      if (icon) props.push(`icon: ${q(icon)}`)
       out.push(`${pad}${nid(n.id)}: ${q(label).replace(/\n/g, '\\n')}${props.length ? ` {${props.join('; ')}}` : ''}`)
     },
     onGroup(g, depth, inner) {

@@ -1,7 +1,19 @@
 // System model -> draw.io / diagrams.net file (uncompressed mxGraph XML), positioned with
 // the same ELK layout as the Auto-layout view so it opens looking the same.
 import { DEFAULT_COLORS, EDGE_STYLES, GROUP_STYLES, NODE_COLORS, layoutModel } from '../autolayout'
+import { ICON_SLOT, iconInfo } from '../icons'
 import { escXml, gid, nid } from './common'
+
+// draw.io's own icon libraries: AWS4 resource icons, Azure2 images; otherwise the artwork URL
+function iconStyle(info) {
+  if (info.provider === 'aws' && info.drawio) {
+    return `sketch=0;outlineConnect=0;fillColor=${info.drawio_color};strokeColor=#ffffff;dashed=0;html=1;aspect=fixed;` +
+      `shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.${info.drawio};`
+  }
+  const image = info.provider === 'azure' ? info.drawio : info.img
+  if (image) return `image;aspect=fixed;html=1;points=[];image=${image};`
+  return null
+}
 
 const SHAPE = {
   database: 'shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=8;',
@@ -43,11 +55,19 @@ export async function toDrawio(model, title = 'Diagram') {
 
   for (const n of model.nodes) {
     const [fill, stroke] = NODE_COLORS[n.type] || DEFAULT_COLORS
-    const style = `${SHAPE[n.type] || 'rounded=1;'}whiteSpace=wrap;html=1;fontStyle=0;fontSize=13;fillColor=${fill};strokeColor=${stroke};`
+    const info = iconInfo(n.icon)
+    const style = `${SHAPE[n.type] || 'rounded=1;'}whiteSpace=wrap;html=1;fontStyle=0;fontSize=13;fillColor=${fill};strokeColor=${stroke};` +
+      (info ? `spacingLeft=${ICON_SLOT - 4};` : '')
     const label = `<b>${escHtml(n.label)}</b>` +
       (n.tech ? `<br><font style="font-size:11px" color="#57606a">${escHtml(n.tech)}</font>` : '')
     cells.push(`<mxCell id="${nid(n.id)}" value="${escXml(label)}" style="${style}" vertex="1" parent="${parentOf(n.group)}">` +
       `${rel(abs(nid(n.id)), n.group)}</mxCell>`)
+    const ist = info && iconStyle(info)
+    if (ist) {
+      const h = abs(nid(n.id)).height
+      cells.push(`<mxCell id="${nid(n.id)}_icon" value="" style="${escXml(ist)}connectable=0;" vertex="1" parent="${nid(n.id)}">` +
+        `<mxGeometry x="8" y="${r((h - 28) / 2)}" width="28" height="28" as="geometry"/></mxCell>`)
+    }
   }
 
   model.edges.forEach((e, i) => {
