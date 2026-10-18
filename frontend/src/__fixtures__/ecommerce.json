@@ -1,0 +1,26 @@
+{"direction": "LR",
+ "groups": [
+  {"id": "pub", "label": "Public internet", "kind": "trust_zone", "parent": null},
+  {"id": "vpc", "label": "AWS VPC (private)", "kind": "trust_zone", "parent": null},
+  {"id": "data", "label": "Data tier", "kind": "tier", "parent": "vpc"}],
+ "nodes": [
+  {"id": "user", "label": "Customer", "type": "user", "group": "pub", "tech": null},
+  {"id": "spa", "label": "Storefront SPA", "type": "client", "group": "pub", "tech": "React"},
+  {"id": "gw", "label": "API Gateway", "type": "gateway", "group": "vpc", "tech": null},
+  {"id": "orders", "label": "Orders service", "type": "service", "group": "vpc", "tech": "Django 5"},
+  {"id": "events", "label": "Order events", "type": "queue", "group": "vpc", "tech": "Kafka"},
+  {"id": "mailer", "label": "Email worker", "type": "function", "group": "vpc", "tech": null},
+  {"id": "cache", "label": "Session & cart cache", "type": "cache", "group": "data", "tech": "Redis"},
+  {"id": "db", "label": "Orders DB", "type": "database", "group": "data", "tech": "PostgreSQL 16"},
+  {"id": "replica", "label": "Read replica", "type": "database", "group": "data", "tech": null},
+  {"id": "stripe", "label": "Stripe payments", "type": "external", "group": null, "tech": null}],
+ "edges": [
+  {"from": "user", "to": "spa", "label": null, "style": "sync"},
+  {"from": "spa", "to": "gw", "label": "HTTPS", "style": "sync"},
+  {"from": "gw", "to": "orders", "label": null, "style": "sync"},
+  {"from": "orders", "to": "cache", "label": null, "style": "sync"},
+  {"from": "orders", "to": "db", "label": "SQL", "style": "sync"},
+  {"from": "db", "to": "replica", "label": "replication", "style": "data"},
+  {"from": "orders", "to": "events", "label": "order.created", "style": "async"},
+  {"from": "events", "to": "mailer", "label": null, "style": "async"},
+  {"from": "orders", "to": "stripe", "label": "charge", "style": "sync"}]}

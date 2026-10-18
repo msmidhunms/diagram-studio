@@ -34,10 +34,11 @@ export default function App() {
   const [current, setCurrent] = useState(null)
   const [versionIdx, setVersionIdx] = useState(0)
   const [prompt, setPrompt] = useState('')
-  const [format, setFormat] = useState('mermaid')
+  const [format, setFormat] = useState('svg')
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
   const [renderedSvg, setRenderedSvg] = useState(null)
+  const [view, setView] = useState('mermaid')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const repairs = useRef(0)
 
@@ -47,6 +48,7 @@ export default function App() {
   const show = (d) => {
     setCurrent(d)
     setVersionIdx(d.versions.length - 1)
+    setView(d.format)
     repairs.current = 0
     setRenderedSvg(null)
     setConfirmDelete(false)
@@ -84,7 +86,10 @@ export default function App() {
   const open = (id) => api.getDiagram(id).then(show).catch((e) => setError(e.message))
 
   const version = current?.versions[versionIdx]
-  const svgForExport = current?.format === 'svg' ? version?.code : renderedSvg
+  const svgForExport = renderedSvg
+  // versions made before the system model existed can only show the format they were made in
+  const activeView = version?.model ? view : current?.format
+  const hasMermaid = version && (version.model || current.format === 'mermaid')
   const isLatest = current && versionIdx === current.versions.length - 1
 
   const onRenderError = useCallback((msg) => {
@@ -124,7 +129,13 @@ export default function App() {
               ) : (
                 <button onClick={() => setConfirmDelete(true)}>Delete</button>
               )}
-              <select value={versionIdx} onChange={(e) => setVersionIdx(Number(e.target.value))}>
+              {version.model && (
+                <select value={view} onChange={(e) => { setRenderedSvg(null); setView(e.target.value) }} title="View">
+                  <option value="svg">Auto-layout</option>
+                  <option value="mermaid">Mermaid</option>
+                </select>
+              )}
+              <select value={versionIdx} onChange={(e) => { setRenderedSvg(null); setVersionIdx(Number(e.target.value)) }}>
                 {current.versions.map((v, i) => (
                   <option key={v.number} value={i}>v{v.number}{v.repairs ? ` (${v.repairs} repair)` : ''}</option>
                 ))}
@@ -132,12 +143,12 @@ export default function App() {
               </div>
             </header>
             <Changes changes={version.changes} />
-            <Preview format={current.format} code={version.code} onRenderError={onRenderError} onSvg={setRenderedSvg} />
+            <Preview view={activeView} code={version.code} model={version.model} onRenderError={onRenderError} onSvg={setRenderedSvg} />
             <div className="actions export">
               <span className="muted">Export:</span>
               <button disabled={!svgForExport} onClick={() => downloadSvg(svgForExport, current.title)}>SVG</button>
               <button disabled={!svgForExport} onClick={() => downloadPng(svgForExport, current.title)}>PNG</button>
-              {current.format === 'mermaid' && (
+              {hasMermaid && (
                 <button onClick={() => downloadText(version.code, current.title, 'mmd', 'text/plain')}>Mermaid (.mmd)</button>
               )}
               {version.model && (
@@ -172,8 +183,8 @@ export default function App() {
         <form onSubmit={submit}>
           {!current && (
             <select value={format} onChange={(e) => setFormat(e.target.value)}>
+              <option value="svg">Auto-layout</option>
               <option value="mermaid">Mermaid</option>
-              <option value="svg">SVG</option>
             </select>
           )}
           <input

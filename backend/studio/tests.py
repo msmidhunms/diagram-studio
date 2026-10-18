@@ -20,10 +20,6 @@ def fake_client(*replies):
     return SimpleNamespace(complete=complete, calls=calls)
 
 
-def reply(code, title='T'):
-    return json.dumps({'title': title, 'explanation': 'e', 'code': code})
-
-
 def model(*ids, edges=(), groups=()):
     return {'direction': 'LR', 'groups': [{'id': g, 'label': g.upper(), 'kind': 'trust_zone'} for g in groups],
             'nodes': [{'id': i, 'label': i.title(), 'type': 'service'} for i in ids],
@@ -59,40 +55,40 @@ class SanitizeTests(TestCase):
 class HarnessTests(TestCase):
     def test_json_wrapped_in_prose_is_accepted(self):
         client = fake_client('Sure! ' + mreply('a', 'b', edges=[('a', 'b')]) + ' Hope it helps.')
-        self.assertEqual(harness.generate('x', 'mermaid', client=client).repairs, 0)
+        self.assertEqual(harness.generate('x', client=client).repairs, 0)
 
     def test_repairs_invalid_then_succeeds(self):
         client = fake_client('not json', mreply('a'))
-        r = harness.generate('x', 'mermaid', client=client)
+        r = harness.generate('x', client=client)
         self.assertEqual(r.repairs, 1)
 
     def test_invalid_model_error_is_fed_back(self):
         client = fake_client(json.dumps({'model': {'nodes': [{'id': 'a'}], 'edges': [{'from': 'a', 'to': 'x'}]}}),
                              mreply('a'))
-        harness.generate('x', 'mermaid', client=client)
+        harness.generate('x', client=client)
         self.assertIn('unknown node "x"', client.calls[1][-1]['content'])
 
     def test_iteration_sends_previous_model(self):
         client = fake_client(mreply('a', 'b'))
-        harness.generate('add b', 'mermaid', 'flowchart LR', model('a'), client=client)
+        harness.generate('add b', 'flowchart LR', model('a'), client=client)
         self.assertIn('Current system model', client.calls[0][-1]['content'])
 
     def test_legacy_mermaid_without_model_is_converted(self):
         client = fake_client(mreply('a', 'b'))
-        r = harness.generate('add b', 'mermaid', 'flowchart LR\nA-->B', None, client=client)
+        r = harness.generate('add b', 'flowchart LR\nA-->B', None, client=client)
         self.assertIn('Current diagram:\nflowchart LR', client.calls[0][-1]['content'])
         self.assertEqual(len(r.model['nodes']), 2)
 
-    def test_svg_still_uses_code(self):
-        svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>'
-        r = harness.generate('x', 'svg', client=fake_client(reply(svg)))
-        self.assertIsNone(r.model)
-        self.assertIn('<svg', r.code)
+    def test_legacy_svg_is_converted(self):
+        client = fake_client(mreply('a'))
+        r = harness.generate('add a', '<svg xmlns="http://www.w3.org/2000/svg"/>', None, client=client)
+        self.assertIn('Current diagram:\n<svg', client.calls[0][-1]['content'])
+        self.assertTrue(r.code.startswith('flowchart'))
 
     def test_gives_up_after_max_repairs(self):
         client = fake_client('bad', 'bad', 'bad')
         with self.assertRaises(harness.HarnessError):
-            harness.generate('x', 'mermaid', client=client)
+            harness.generate('x', client=client)
 
 
 class SystemModelTests(TestCase):
@@ -173,6 +169,12 @@ class ApiTests(TestCase):
         self.assertEqual(bad.status_code, 400)
         self.assertEqual(self.client.delete(url).status_code, 200)
         self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_svg_format_stores_model(self):
+        with patch('studio.harness.get_client', return_value=fake_client(mreply('a', 'b'))):
+            d = self.post('/api/diagrams/generate/', {'prompt': 'x', 'format': 'svg'}).json()
+        self.assertEqual(d['format'], 'svg')
+        self.assertEqual(len(d['versions'][0]['model']['nodes']), 2)
 
     def test_validation_errors(self):
         self.assertEqual(self.post('/api/diagrams/generate/', {'prompt': ''}).status_code, 400)

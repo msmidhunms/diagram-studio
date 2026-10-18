@@ -18,7 +18,7 @@ cp .env.example .env        # set LLM_PROVIDER and LLM_API_KEY
 cd frontend && npm install && npm run dev   # :5173, proxies /api to :8000
 ```
 
-Tests: `cd backend && .venv/bin/python manage.py test`
+Tests: `cd backend && .venv/bin/python manage.py test` and `cd frontend && npm test`
 
 ## Choosing a model provider
 
@@ -39,10 +39,12 @@ Larger models give much better diagrams than small local ones.
 
 ## How the harness works
 
-1. `POST /api/diagrams/generate/` sends the prompt (plus the current diagram when iterating) to the configured model (JSON mode where the provider supports it).
-   - **Mermaid (plan, then render):** the model returns `{title, explanation, model}`, a structured system model of groups/trust zones, typed nodes and styled edges (`backend/studio/sysmodel.py`). It is validated and rendered to Mermaid in Python (`render_mermaid.py`), so the layout is consistent and each version reports which components changed.
-   - **SVG:** the model returns `{title, explanation, code}` with a hand-drawn SVG.
-2. Output is validated: the system model is checked for duplicate ids, dangling edges and group cycles; SVG is parsed and sanitized (scripts, event handlers, external refs, DOCTYPE removed).
+1. `POST /api/diagrams/generate/` sends the prompt (plus the current system model when iterating) to the configured model (JSON mode where the provider supports it). It returns `{title, explanation, model}`, a structured system model of groups/trust zones, typed nodes and styled edges (`backend/studio/sysmodel.py`).
+2. The model is validated (duplicate ids, dangling edges, group cycles) and then rendered without the LLM:
+   - **Auto-layout:** in the browser, ELK computes positions and orthogonal edge routes and `frontend/src/autolayout.js` draws the SVG.
+   - **Mermaid:** in Python (`render_mermaid.py`), stored as the version's code.
+
+   Both views come from the same model, so switching views needs no LLM call, and each version reports which components changed.
 3. Invalid output is fed back to the model for up to `HARNESS_MAX_REPAIRS` (default 2) retries.
 4. Mermaid is parsed by the browser's renderer; if it fails, the UI calls `POST /api/diagrams/<id>/repair/` with the error and the model fixes it (max 2 auto-repairs).
 5. Every result is stored as a new version of the diagram (with its system model, exportable as JSON).

@@ -95,7 +95,7 @@ def generate(request):
         fmt = data.get('format', 'mermaid')
         if not prompt or len(prompt) > MAX_PROMPT:
             raise ValueError(f'prompt is required (max {MAX_PROMPT} chars)')
-        if fmt not in harness.SYSTEM_PROMPTS:
+        if fmt not in harness.FORMATS:
             raise ValueError('format must be "mermaid" or "svg"')
         diagram, previous = None, None
         if data.get('diagram_id'):
@@ -105,7 +105,7 @@ def generate(request):
                 raise ValueError('Unknown diagram_id')
             fmt = diagram.format
             previous = diagram.latest()
-        result = harness.generate(prompt, fmt, previous.code if previous else None,
+        result = harness.generate(prompt, previous.code if previous else None,
                                   previous.model if previous else None)
         diagram = diagram or Diagram.objects.create(format=fmt)
         return JsonResponse(_diagram(_save_version(diagram, prompt, result)))
@@ -125,6 +125,6 @@ def repair(request, pk):
         if not error:
             raise ValueError('error is required')
         latest = diagram.latest()
-        result = harness.repair(latest.prompt, diagram.format, latest.code, error, latest.model)
+        result = harness.repair(latest.prompt, latest.code, error, latest.model)
         return JsonResponse(_diagram(_save_version(diagram, f'(auto-repair) {error[:120]}', result)))
     return _run(go)
