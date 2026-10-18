@@ -1,26 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import mermaid from 'mermaid'
 import { modelToSvg } from './autolayout'
+import ZoomView from './ZoomView'
 
 mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', htmlLabels: false, flowchart: { htmlLabels: false } })
 
 let counter = 0
 
-const svgImg = (svg) => (
-  // <img> sandboxes the SVG: no script execution even if something slipped through
-  <img alt="diagram" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`} />
-)
-
-// Renders a version in one of two views:
+// Turns a version into an SVG string for one of two views, then shows it in a zoomable viewport:
 //   mermaid: the Mermaid code (parse errors go to onRenderError so the model can fix them)
 //   svg:     the system model laid out with ELK; versions without a model show their stored SVG
 export default function Preview({ view, code, model, onRenderError, onSvg }) {
-  const ref = useRef(null)
+  const [svg, setSvg] = useState(null)
   const [error, setError] = useState(null)
-  const [layoutSvg, setLayoutSvg] = useState(null)
 
   useEffect(() => {
     let cancelled = false
+    const done = (out) => {
+      if (cancelled) return
+      setSvg(out)
+      onSvg?.(out)
+    }
     const fail = (e, report) => {
       if (cancelled) return
       const msg = String(e?.message || e)
@@ -29,41 +29,27 @@ export default function Preview({ view, code, model, onRenderError, onSvg }) {
     }
     setError(null) // eslint-disable-line react-hooks/set-state-in-effect
     if (view === 'svg' && model) {
-      modelToSvg(model)
-        .then((svg) => {
-          if (cancelled) return
-          setLayoutSvg(svg)
-          onSvg?.(svg)
-        })
-        .catch((e) => fail(e, false)) // our renderer, not the model's output: nothing to repair
+      modelToSvg(model).then(done).catch((e) => fail(e, false)) // our renderer: nothing for the model to repair
     } else if (view === 'mermaid') {
+      const id = `m${++counter}`
       mermaid
-        .render(`m${++counter}`, code)
-        .then(({ svg }) => {
-          if (cancelled) return
-          if (ref.current) ref.current.innerHTML = svg
-          onSvg?.(svg)
-        })
+        .render(id, code)
+        .then(({ svg: out }) => done(out))
         .catch((e) => {
-          document.getElementById(`dm${counter}`)?.remove()
+          document.getElementById(`d${id}`)?.remove()
           fail(e, true)
         })
     } else {
-      onSvg?.(code) // stored, server-sanitized SVG from before the system model existed
+      done(code) // stored, server-sanitized SVG from before the system model existed
     }
     return () => {
       cancelled = true
     }
   }, [view, code, model]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  let body
-  if (view === 'mermaid') body = <div ref={ref} />
-  else if (model) body = layoutSvg && svgImg(layoutSvg)
-  else body = svgImg(code)
   return (
     <div className="preview">
-      {body}
-      {error && <pre className="error">{error}</pre>}
+      {error ? <pre className="error">{error}</pre> : <ZoomView svg={svg} />}
     </div>
   )
 }

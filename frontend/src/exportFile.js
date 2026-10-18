@@ -16,7 +16,7 @@ export function downloadSvg(svg, title) {
   downloadText(svg, title, 'svg', 'image/svg+xml')
 }
 
-function svgSize(svg) {
+export function svgSize(svg) {
   const doc = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
   const vb = (doc.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number)
   if (vb.length === 4 && vb[2] > 0 && vb[3] > 0) return [vb[2], vb[3]]
